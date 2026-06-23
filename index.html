@@ -76,49 +76,64 @@ const TOWER_DEFS = {
 };
 
 const ARROW_UPGRADES = [
-  [ // Lane 0 — Damage
-    { name: 'Broadhead Tips',  cost: 40,  desc: 'Damage 18 → 28' },
-    { name: 'Armor Piercing',  cost: 75,  desc: 'Damage 28 → 42' },
-    { name: 'Explosive Tips',  cost: 150, desc: 'Arrows explode — 50% splash in 40px' },
+  [ // Lane 0 — Damage / CC
+    { name: 'Crippling Shot', cost: 40,  desc: 'Hits slow enemies by 30% for 1.5s' },
+    { name: 'Hamstring',      cost: 75,  desc: 'Slowed enemies take +50% damage' },
+    { name: 'Execute',        cost: 150, desc: 'Arrows instakill enemies below 20% HP' },
   ],
-  [ // Lane 1 — Speed
-    { name: 'Swift Draw',      cost: 35,  desc: 'Fire rate 60 → 38 ticks' },
-    { name: 'Double Shot',     cost: 65,  desc: 'Fire 2 arrows per shot' },
-    { name: 'Arrow Barrage',   cost: 120, desc: 'Every 5th shot fires 5 arrows' },
+  [ // Lane 1 — Utility
+    { name: 'Marked Target',  cost: 40,  desc: 'Hits mark enemies — all towers deal +25%' },
+    { name: "Tracker's Sight",cost: 75,  desc: 'Targets highest HP enemy in range' },
+    { name: 'Eagle Eye',      cost: 150, desc: 'All arrow towers gain +1 range' },
   ],
-  [ // Lane 2 — Range / Utility
-    { name: 'Keen Eye',        cost: 40,  desc: 'Range 3 → 4.5 tiles' },
-    { name: 'Piercing Shot',   cost: 80,  desc: 'Arrow pierces through 1 enemy' },
-    { name: 'Longbow Mastery', cost: 150, desc: 'Range 3 → 6, pierce all in line' },
+  [ // Lane 2 — Support
+    { name: 'Watchtower',     cost: 40,  desc: 'Range 3 → 5 tiles' },
+    { name: 'Signal Fire',    cost: 75,  desc: 'Kills in range award +2 gold' },
+    { name: "Commander's Post",cost: 150, desc: 'Towers within 2 cells fire 20% faster' },
   ],
 ];
 
+// Returns effective stats for an arrow tower based on its upgrades.
+// Never mutates tower.def — called fresh on every shot.
 function getTowerStats(tower) {
   if (tower.def.type !== 'arrow') return tower.def;
-  const [d, s, r] = tower.upgrades;
-  let damage = 18;
-  if (d >= 1) damage = 28;
-  if (d >= 2) damage = 42;
-  const splash = d >= 3;
-  let rate = 60;
-  if (s >= 1) rate = 38;
-  const doubleShot = s >= 2;
-  const barrage = s >= 3;
-  let range = 3;
-  if (r >= 1) range = 4.5;
-  if (r >= 3) range = 6;
-  let pierce = 0;
-  if (r >= 2) pierce = 1;
-  if (r >= 3) pierce = 999;
-  return { damage, rate, range, splash, doubleShot, barrage, pierce, speed: tower.def.speed, pcolor: tower.def.pcolor };
+  const [d, u, s] = tower.upgrades;
+
+  // Lane 2 — Support: range
+  let range = s >= 1 ? 5 : 3;
+
+  // Lane 1 — Utility: Eagle Eye adds +1 to ALL arrow towers if any has it
+  const eagleEyeActive = towers.some(t => t.def.type === 'arrow' && t.upgrades && t.upgrades[1] >= 3);
+  if (eagleEyeActive) range += 1;
+
+  return {
+    damage: tower.def.damage,
+    rate: tower.def.rate,
+    range,
+    speed: tower.def.speed,
+    pcolor: tower.def.pcolor,
+    // Lane 0 — Damage / CC
+    appliesSlow: d >= 1,
+    hamstring:   d >= 2,
+    execute:     d >= 3,
+    // Lane 1 — Utility
+    appliesMark:  u >= 1,
+    trackerSight: u >= 2,
+    // Lane 2 — Support
+    signalFire:      s >= 2,
+    commanderPost:   s >= 3,
+  };
 }
 
-function advancePierce(b) {
-  const candidates = enemies.filter(e => !e.dead && e.hp > 0 && !b.pierceHit.has(e));
-  if (!candidates.length) return false;
-  candidates.sort((a, c) => c.pathIdx - a.pathIdx);
-  b.target = candidates[0];
-  return true;
+// Returns 0.8 if this tower is within 2.5 cells of a Commander's Post arrow tower, else 1.0.
+function getCommanderBoost(tower) {
+  const cx = tower.gx * CELL + CELL / 2, cy = tower.gy * CELL + CELL / 2;
+  for (const t of towers) {
+    if (t === tower || t.def.type !== 'arrow' || !t.upgrades || t.upgrades[2] < 3) continue;
+    const tcx = t.gx * CELL + CELL / 2, tcy = t.gy * CELL + CELL / 2;
+    if (dist(cx, cy, tcx, tcy) <= CELL * 2.5) return 0.8;
+  }
+  return 1.0;
 }
 
 function selectMode(m) {
@@ -227,14 +242,12 @@ canvas.addEventListener('click', e => {
   if (ps.has(gx+','+gy)) return;
   const existing = towerAt(gx, gy);
 
-  // Click on placed arrow tower with no active mode → open upgrade panel
   if (!mode && existing && existing.def.type === 'arrow') {
     selectedTower = selectedTower === existing ? null : existing;
     renderUpgradePanel();
     return;
   }
 
-  // Click elsewhere on canvas → close upgrade panel
   if (!mode) { closeUpgradePanel(); return; }
 
   if (mode === 'sell') {
@@ -246,7 +259,7 @@ canvas.addEventListener('click', e => {
   const def = TOWER_DEFS[mode];
   if (gold < def.cost) return;
   gold -= def.cost;
-  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, upgrades: [0,0,0], shotsFired: 0 });
+  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, upgrades: [0,0,0] });
   updateUI();
   clearMode();
 });
@@ -254,7 +267,7 @@ canvas.addEventListener('click', e => {
 function spawnEnemy() {
   const base = 40 + wave * 18;
   const hp = base + Math.floor(Math.random() * base * 0.3);
-  enemies.push({ pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed: 1.1+wave*0.08, reward: 8+wave*2, size: 7, t: 0 });
+  enemies.push({ pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed: 1.1+wave*0.08, baseSpeed: 1.1+wave*0.08, reward: 8+wave*2, size: 7, t: 0, slowTimer: 0, marked: false, markedTimer: 0 });
 }
 
 function startWave() {
@@ -282,8 +295,8 @@ function renderUpgradePanel() {
   const lanesEl = document.getElementById('upgrade-lanes');
   lanesEl.innerHTML = '';
 
-  const laneNames = ['⚔️ Damage', '⚡ Speed', '🎯 Range'];
-  const laneColors = ['#e94560', '#50c8f0', '#f0c040'];
+  const laneNames = ['💀 Damage', '🎯 Utility', '🏰 Support'];
+  const laneColors = ['#e94560', '#a855f7', '#50c8f0'];
 
   ARROW_UPGRADES.forEach((lane, li) => {
     const col = document.createElement('div');
@@ -350,45 +363,75 @@ function tick() {
 
   for (const e of enemies) {
     if (e.dead) continue;
+    // Tick down slow and mark timers
+    if (e.slowTimer > 0) { e.slowTimer--; } else { e.slow = false; }
+    if (e.markedTimer > 0) { e.markedTimer--; } else { e.marked = false; }
+
+    const spd = e.slow ? e.baseSpeed * 0.7 : e.baseSpeed;
     const target = path[e.pathIdx];
     if (!target) { e.dead = true; lives--; updateUI(); continue; }
     const tx = target.x*CELL+CELL/2, ty = target.y*CELL+CELL/2;
     const d = dist(e.x,e.y,tx,ty);
-    if (d < e.speed+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
-    else { e.x += (tx-e.x)/d*e.speed; e.y += (ty-e.y)/d*e.speed; }
+    if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
+    else { e.x += (tx-e.x)/d*spd; e.y += (ty-e.y)/d*spd; }
     e.t++;
   }
 
   for (const t of towers) {
     if (t.def.type !== 'inferno') {
-      t.cooldown = Math.max(0, t.cooldown-1);
+      const boost = getCommanderBoost(t);
+      t.cooldown = Math.max(0, t.cooldown - 1);
       if (t.cooldown > 0) continue;
 
       if (t.def.type === 'arrow') {
         const eff = getTowerStats(t);
         const c = cellCenter(t.gx, t.gy);
-        const inRange = enemies
-          .filter(e => !e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL)
-          .sort((a, b) => b.pathIdx - a.pathIdx);
+        const inRange = enemies.filter(e => !e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL);
         if (!inRange.length) continue;
 
-        t.shotsFired++;
-        const isBarrage = eff.barrage && t.shotsFired % 5 === 0;
-        const targets = isBarrage ? inRange.slice(0, 5) : eff.doubleShot ? inRange.slice(0, 2) : inRange.slice(0, 1);
-
-        for (const target of targets) {
-          bullets.push({ x: c.x, y: c.y, target, speed: eff.speed, dmg: eff.damage, color: eff.pcolor, size: 3, type: 'arrow', pierce: eff.pierce, splash: eff.splash, pierceHit: new Set() });
+        let best;
+        if (eff.trackerSight) {
+          best = inRange.reduce((a, b) => b.hp > a.hp ? b : a);
+        } else {
+          best = inRange.reduce((a, b) => b.pathIdx > a.pathIdx ? b : a);
         }
-        t.cooldown = eff.rate;
+
+        // Execute: instakill below 20% HP
+        if (eff.execute && best.hp / best.maxHp < 0.2) {
+          const reward = best.reward + (eff.signalFire ? 2 : 0);
+          best.dead = true; gold += reward; score++; updateUI();
+          for (let i=0;i<6;i++) particles.push({ x:best.x, y:best.y, vx:(Math.random()-.5)*4, vy:(Math.random()-.5)*4, life:20, color:'#f0c040' });
+          t.cooldown = Math.round(eff.rate * boost);
+          continue;
+        }
+
+        let dmg = eff.damage;
+        if (eff.hamstring && best.slow) dmg = Math.round(dmg * 1.5);
+        if (best.marked) dmg = Math.round(dmg * 1.25);
+
+        bullets.push({
+          x: c.x, y: c.y, target: best,
+          speed: eff.speed, dmg, color: eff.pcolor, size: 3, type: 'arrow',
+          appliesSlow: eff.appliesSlow,
+          appliesMark: eff.appliesMark,
+          signalFire: eff.signalFire,
+          hamstring: eff.hamstring,
+        });
+        t.cooldown = Math.round(eff.rate * boost);
       } else {
-        // Laser tower
+        // Laser tower — apply commander boost to rate
         const c = cellCenter(t.gx, t.gy);
         let best = null, bestIdx = -1;
         for (const e of enemies) {
           if (e.dead || e.hp <= 0) continue;
           if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
         }
-        if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: 2, type: 'laser', pierce: 0, splash: false, pierceHit: new Set() }); }
+        if (best) {
+          let dmg = t.def.damage;
+          if (best.marked) dmg = Math.round(dmg * 1.25);
+          t.cooldown = Math.round(t.def.rate * boost);
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: t.def.pcolor, size: 2, type: 'laser', appliesSlow: false, appliesMark: false, signalFire: false });
+        }
       }
     } else {
       // Inferno tower: beam logic
@@ -402,7 +445,8 @@ function tick() {
       if (best) {
         if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
         t.heat = Math.min(t.heat + 1, 180);
-        const dmgPerTick = 0.3 + (t.heat / 180) * 4;
+        let dmgPerTick = 0.3 + (t.heat / 180) * 4;
+        if (best.marked) dmgPerTick *= 1.25;
         best.hp -= dmgPerTick;
         best.onFire = t.heat;
         if (tick_count % 3 === 0) {
@@ -426,31 +470,22 @@ function tick() {
 
   for (const b of bullets) {
     if (b.done) continue;
-    if (b.target.dead || b.target.hp <= 0) {
-      if (b.pierce > 0 && advancePierce(b)) { b.pierce--; }
-      else { b.done = true; }
-      continue;
-    }
+    if (b.target.dead || b.target.hp <= 0) { b.done = true; continue; }
     const tx = b.target.x, ty = b.target.y;
     const d = dist(b.x,b.y,tx,ty);
     if (d < b.speed+2) {
-      b.pierceHit.add(b.target);
       b.target.hp -= b.dmg;
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
-      if (b.target.hp <= 0) { b.target.dead=true; gold+=b.target.reward; score++; updateUI(); }
 
-      if (b.splash) {
-        for (const e of enemies) {
-          if (e.dead || e.hp <= 0 || e === b.target) continue;
-          if (dist(tx, ty, e.x, e.y) <= 40) {
-            e.hp -= b.dmg * 0.5;
-            if (e.hp <= 0) { e.dead=true; gold+=e.reward; score++; updateUI(); }
-          }
-        }
+      if (b.appliesSlow) { b.target.slow = true; b.target.slowTimer = 90; }
+      if (b.appliesMark) { b.target.marked = true; b.target.markedTimer = 180; }
+
+      if (b.target.hp <= 0) {
+        b.target.dead = true;
+        gold += b.target.reward + (b.signalFire ? 2 : 0);
+        score++; updateUI();
       }
-
-      if (b.pierce > 0 && advancePierce(b)) { b.pierce--; }
-      else { b.done = true; }
+      b.done = true;
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
   }
 
@@ -535,6 +570,16 @@ function draw() {
     }
   }
 
+  // Commander's Post aura rings
+  for (const t of towers) {
+    if (t.def.type === 'arrow' && t.upgrades && t.upgrades[2] >= 3) {
+      const cx = t.gx*CELL+CELL/2, cy = t.gy*CELL+CELL/2;
+      ctx.beginPath(); ctx.arc(cx, cy, CELL * 2.5, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(80,200,255,0.2)'; ctx.lineWidth = 1;
+      ctx.setLineDash([3,4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
   for (const t of towers) {
     const cx = t.gx*CELL+CELL/2, cy = t.gy*CELL+CELL/2;
     ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5;
@@ -543,8 +588,7 @@ function draw() {
     if (t.def.type === 'inferno' && t.heat > 0) {
       const h01 = t.heat/180;
       ctx.strokeStyle = `rgba(255,${Math.round(150*(1-h01))},0,${0.5+h01*0.5})`;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      ctx.lineWidth = 2; ctx.stroke();
     }
     ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+5);
@@ -570,8 +614,7 @@ function draw() {
     const canPlace = !ps2.has(hoverGX+','+hoverGY) && !towerAt(hoverGX,hoverGY) && gold >= def.cost;
     const cx = hoverGX*CELL+CELL/2, cy = hoverGY*CELL+CELL/2;
     ctx.beginPath(); ctx.arc(cx, cy, def.range*CELL, 0, Math.PI*2);
-    ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)';
-    ctx.fill();
+    ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)'; ctx.fill();
     ctx.strokeStyle = canPlace
       ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : 'rgba(255,255,255,0.5)')
       : 'rgba(255,80,80,0.5)';
@@ -592,6 +635,17 @@ function draw() {
     ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.4)';
     ctx.lineWidth=1+fireAmt; ctx.stroke();
     e.onFire = 0;
+
+    // Slow visual: blue tint ring
+    if (e.slow) {
+      ctx.beginPath(); ctx.arc(e.x, e.y, r*pulse+2, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(100,180,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    // Marked visual: purple glow ring
+    if (e.marked) {
+      ctx.beginPath(); ctx.arc(e.x, e.y, r*pulse+3, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(168,85,247,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
 
     const bw=r*2.2;
     ctx.fillStyle='#333'; ctx.fillRect(e.x-bw/2, e.y-r-6, bw, 3);
