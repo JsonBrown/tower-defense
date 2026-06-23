@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; overflow: hidden; cursor: default; }
+#ui { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
+.stat { font-size: 12px; color: #aaa; }
+.stat span { color: #fff; font-weight: 500; }
+#ui button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
+#ui button:hover { background: #ffffff; border-color: #000; }
+.tower-btn { border: 2px solid #aaa !important; }
+.tower-btn.selected { border-color: #f0c040 !important; box-shadow: 0 0 0 2px #f0c040; }
+#start-btn { background: #0f3460; border-color: #e94560 !important; }
+#start-btn:disabled { opacity: 0.4; cursor: default; }
+#auto-btn.on { background: #1a2a1a; border-color: #4a8a4a !important; }
+#speed-btn.on { background: #2a1a3a; border-color: #7a40aa !important; }
+#cursor-tower { position: fixed; pointer-events: none; font-size: 20px; transform: translate(-50%, -50%); display: none; z-index: 999; filter: drop-shadow(0 0 6px rgba(255,150,0,0.8)); }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div class="stat">❤️ <span id="lives">20</span></div>
+  <div class="stat">💰 <span id="gold">150</span></div>
+  <div class="stat">🌊 Wave <span id="wave">0</span></div>
+  <div class="stat">☠️ <span id="score">0</span></div>
+  <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
+  <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
+  <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
+  <button class="tower-btn" id="sell-btn" onclick="selectMode('sell')">💸 Sell</button>
+  <button id="auto-btn" onclick="toggleAuto()">⏩ Auto: OFF</button>
+  <button id="speed-btn" onclick="toggleSpeed()">▶▶ 1×</button>
+  <button id="start-btn" onclick="startWave()">Start Wave ▶</button>
+</div>
+<canvas id="c"></canvas>
+<div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
+<div id="cursor-tower"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const cursorEl = document.getElementById('cursor-tower');
+const CELL = 28;
+const GAME_W = 640;
+const GAME_H = 400;
+const COLS = Math.floor(GAME_W / CELL);
+const ROWS = Math.floor(GAME_H / CELL);
+
+canvas.width = GAME_W;
+canvas.height = GAME_H;
+canvas.style.display = 'block';
+canvas.style.margin = '0 auto';
+
+let mode = null;
+let towers = [], enemies = [], bullets = [], particles = [];
+let lives = 20, gold = 150, wave = 0, score = 0;
+let waveActive = false, spawnQueue = [], spawnTimer = 0;
+let gameOver = false, path = [], autoWave = false, autoDelay = 0;
+let hoverGX = -1, hoverGY = -1;
+let doubleSpeed = false;
+let tick_count = 0;
+
+const TOWER_DEFS = {
+  arrow:   { cost: 50,  range: 3,     damage: 18, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹' },
+  laser:   { cost: 80,  range: 4.125, damage: 8,  rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡' },
+  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥' }
+};
+
+function selectMode(m) {
+  mode = (mode === m) ? null : m;
+  ['arrow','laser','inferno','sell'].forEach(t => {
+    const b = document.getElementById(t+'-btn');
+    if (b) b.classList.toggle('selected', t === mode);
+  });
+  updateCursor();
+}
+
+function clearMode() {
+  mode = null;
+  ['arrow','laser','inferno','sell'].forEach(t => {
+    const b = document.getElementById(t+'-btn');
+    if (b) b.classList.remove('selected');
+  });
+  updateCursor();
+}
+
+function updateCursor() {
+  if (mode && TOWER_DEFS[mode]) {
+    cursorEl.textContent = TOWER_DEFS[mode].icon;
+    cursorEl.style.display = 'block';
+    canvas.style.cursor = 'none';
+  } else {
+    cursorEl.style.display = 'none';
+    canvas.style.cursor = mode === 'sell' ? 'crosshair' : 'default';
+  }
+}
+
+function toggleAuto() {
+  autoWave = !autoWave;
+  const b = document.getElementById('auto-btn');
+  b.textContent = '⏩ Auto: ' + (autoWave ? 'ON' : 'OFF');
+  b.classList.toggle('on', autoWave);
+  if (autoWave && !waveActive && !gameOver) autoDelay = 60;
+}
+
+function toggleSpeed() {
+  doubleSpeed = !doubleSpeed;
+  const b = document.getElementById('speed-btn');
+  b.textContent = doubleSpeed ? '▶▶ 2×' : '▶▶ 1×';
+  b.classList.toggle('on', doubleSpeed);
+}
+
+document.addEventListener('mousemove', e => {
+  cursorEl.style.left = e.clientX + 'px';
+  cursorEl.style.top = e.clientY + 'px';
+  const rect = canvas.getBoundingClientRect();
+  hoverGX = Math.floor((e.clientX - rect.left) / CELL);
+  hoverGY = Math.floor((e.clientY - rect.top) / CELL);
+});
+
+canvas.addEventListener('mouseleave', () => { hoverGX = -1; hoverGY = -1; });
+
+function generatePath() {
+  path = [];
+  let x = 0, y = Math.floor(ROWS * 0.35);
+  path.push({x, y});
+  const targets = [
+    {x: Math.floor(COLS*0.25), y: Math.floor(ROWS*0.35)},
+    {x: Math.floor(COLS*0.25), y: Math.floor(ROWS*0.75)},
+    {x: Math.floor(COLS*0.6),  y: Math.floor(ROWS*0.75)},
+    {x: Math.floor(COLS*0.6),  y: Math.floor(ROWS*0.2)},
+    {x: Math.floor(COLS*0.85), y: Math.floor(ROWS*0.2)},
+    {x: Math.floor(COLS*0.85), y: Math.floor(ROWS*0.6)},
+    {x: COLS+1,                y: Math.floor(ROWS*0.6)},
+  ];
+  for (const t of targets) {
+    while (x !== t.x) { x += (t.x > x ? 1 : -1); path.push({x,y}); }
+    while (y !== t.y) { y += (t.y > y ? 1 : -1); path.push({x,y}); }
+  }
+}
+
+function pathSet() {
+  const s = new Set();
+  path.forEach(p => s.add(p.x+','+p.y));
+  return s;
+}
+
+function cellCenter(gx, gy) { return { x: gx*CELL+CELL/2, y: gy*CELL+CELL/2 }; }
+function towerAt(gx, gy) { return towers.find(t => t.gx===gx && t.gy===gy); }
+function dist(ax,ay,bx,by) { return Math.hypot(ax-bx,ay-by); }
+
+canvas.addEventListener('click', e => {
+  if (gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  const gx = Math.floor((e.clientX - rect.left) / CELL);
+  const gy = Math.floor((e.clientY - rect.top) / CELL);
+  if (gx < 0 || gy < 0 || gx >= COLS || gy >= ROWS) return;
+  const ps = pathSet();
+  if (ps.has(gx+','+gy)) return;
+  const existing = towerAt(gx, gy);
+  if (mode === 'sell') {
+    if (existing) { gold += Math.floor(existing.def.cost * 0.5); towers = towers.filter(t => t !== existing); updateUI(); }
+    return;
+  }
+  if (!mode || !TOWER_DEFS[mode]) return;
+  if (existing) return;
+  const def = TOWER_DEFS[mode];
+  if (gold < def.cost) return;
+  gold -= def.cost;
+  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0 });
+  updateUI();
+  clearMode();
+});
+
+function spawnEnemy() {
+  const base = 40 + wave * 18;
+  const hp = base + Math.floor(Math.random() * base * 0.3);
+  enemies.push({ pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed: 1.1+wave*0.08, reward: 8+wave*2, size: 7, t: 0 });
+}
+
+function startWave() {
+  if (waveActive || gameOver) return;
+  wave++; waveActive = true;
+  spawnQueue = Array(5 + wave * 3).fill(0);
+  spawnTimer = 0;
+  document.getElementById('start-btn').disabled = true;
+  updateUI();
+}
+
+function updateUI() {
+  document.getElementById('lives').textContent = lives;
+  document.getElementById('gold').textContent = gold;
+  document.getElementById('wave').textContent = wave;
+  document.getElementById('score').textContent = score;
+  document.getElementById('start-btn').disabled = waveActive;
+}
+
+function tick() {
+  if (gameOver) return;
+  tick_count++;
+  if (!waveActive && autoWave) { autoDelay--; if (autoDelay <= 0) startWave(); }
+  if (waveActive && spawnQueue.length > 0) { spawnTimer--; if (spawnTimer <= 0) { spawnEnemy(); spawnQueue.pop(); spawnTimer = 55; } }
+
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const target = path[e.pathIdx];
+    if (!target) { e.dead = true; lives--; updateUI(); continue; }
+    const tx = target.x*CELL+CELL/2, ty = target.y*CELL+CELL/2;
+    const d = dist(e.x,e.y,tx,ty);
+    if (d < e.speed+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
+    else { e.x += (tx-e.x)/d*e.speed; e.y += (ty-e.y)/d*e.speed; }
+    e.t++;
+  }
+
+  for (const t of towers) {
+    if (t.def.type !== 'inferno') {
+      // Normal tower logic
+      t.cooldown = Math.max(0, t.cooldown-1);
+      if (t.cooldown > 0) continue;
+      const c = cellCenter(t.gx, t.gy);
+      let best = null, bestIdx = -1;
+      for (const e of enemies) {
+        if (e.dead || e.hp <= 0) continue;
+        if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+      }
+      if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
+    } else {
+      // Inferno tower: beam logic
+      const c = cellCenter(t.gx, t.gy);
+      const range = t.def.range * CELL;
+      // find closest enemy in range, prioritize furthest along path
+      let best = null, bestIdx = -1;
+      for (const e of enemies) {
+        if (e.dead || e.hp <= 0) continue;
+        if (dist(c.x,c.y,e.x,e.y) <= range && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+      }
+      if (best) {
+        // Check if same target — heat up, else reset
+        if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
+        t.heat = Math.min(t.heat + 1, 180);
+        // damage scales with heat: starts at 0.5/tick, ramps to 4/tick over 3 seconds
+        const dmgPerTick = 0.3 + (t.heat / 180) * 4;
+        best.hp -= dmgPerTick;
+        best.onFire = t.heat;
+        // fire particles along beam
+        if (tick_count % 3 === 0) {
+          const frac = Math.random();
+          const px = c.x + (best.x - c.x) * frac;
+          const py = c.y + (best.y - c.y) * frac;
+          const heat01 = t.heat / 180;
+          const r = Math.round(255);
+          const g = Math.round(200 * (1 - heat01));
+          particles.push({ x: px + (Math.random()-.5)*4, y: py + (Math.random()-.5)*4, vx: (Math.random()-.5)*1.5, vy: -Math.random()*2, life: 8 + Math.random()*6, color: `rgb(${r},${g},0)` });
+        }
+        if (best.hp <= 0) { best.dead=true; gold+=best.reward; score++; updateUI(); t.heat=0; t.heatTarget=null; }
+        t.beamTarget = best;
+      } else {
+        t.heat = Math.max(0, t.heat - 3);
+        t.beamTarget = null;
+        if (t.heatTarget) t.heatTarget = null;
+      }
+    }
+  }
+
+  for (const b of bullets) {
+    if (b.done) continue;
+    if (b.target.dead || b.target.hp <= 0) { b.done = true; continue; }
+    const tx = b.target.x, ty = b.target.y;
+    const d = dist(b.x,b.y,tx,ty);
+    if (d < b.speed+2) {
+      b.target.hp -= b.dmg; b.done = true;
+      for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
+      if (b.target.hp <= 0) { b.target.dead=true; gold+=b.target.reward; score++; updateUI(); }
+    } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
+  }
+
+  particles = particles.filter(p => { p.x+=p.vx; p.y+=p.vy; p.life--; return p.life>0; });
+  bullets = bullets.filter(b => !b.done);
+  enemies = enemies.filter(e => !e.dead && e.hp>0);
+
+  if (waveActive && spawnQueue.length===0 && enemies.length===0) {
+    waveActive = false; gold += 20+wave*5; updateUI();
+    document.getElementById('start-btn').disabled = false;
+    showMsg('Wave '+wave+' clear! +'+(20+wave*5)+'g', 1800);
+    if (autoWave) autoDelay = 180;
+  }
+
+  if (lives <= 0) {
+    gameOver = true; clearMode();
+    showMsg('💀 Game Over!\nWave '+wave+' • '+score+' kills\n\nRefresh to restart', 0);
+  }
+}
+
+function showMsg(text, dur) {
+  const m = document.getElementById('msg');
+  m.textContent = text; m.style.display = 'block';
+  if (dur > 0) setTimeout(() => m.style.display='none', dur);
+}
+
+function drawBeam(x1, y1, x2, y2, heat) {
+  const heat01 = heat / 180;
+  const coreW = 1 + heat01 * 3;
+  const glowW = 4 + heat01 * 10;
+  const r = 255;
+  const g = Math.round(180 * (1 - heat01));
+
+  // outer glow
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle = `rgba(255,${g},0,${0.15 + heat01*0.2})`;
+  ctx.lineWidth = glowW; ctx.stroke();
+
+  // mid
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle = `rgba(255,${Math.round(g*0.6)},0,${0.5 + heat01*0.3})`;
+  ctx.lineWidth = coreW * 2; ctx.stroke();
+
+  // core white-hot
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+  ctx.strokeStyle = `rgba(255,${200+Math.round(55*heat01)},${Math.round(200*heat01)},${0.7+heat01*0.3})`;
+  ctx.lineWidth = coreW; ctx.stroke();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, GAME_W, GAME_H);
+  const ps = pathSet();
+
+  for (let gy=0; gy<ROWS; gy++) {
+    for (let gx=0; gx<COLS; gx++) {
+      const isPath = ps.has(gx+','+gy);
+      const isHover = gx===hoverGX && gy===hoverGY && !isPath && mode && TOWER_DEFS[mode];
+      const def = mode ? TOWER_DEFS[mode] : null;
+      const canPlace = isHover && def && gold >= def.cost && !towerAt(gx,gy);
+      ctx.fillStyle = isPath ? '#2a2010' : isHover ? (canPlace ? 'rgba(80,180,80,0.25)' : 'rgba(180,60,60,0.25)') : '#0d1b2a';
+      ctx.fillRect(gx*CELL, gy*CELL, CELL-1, CELL-1);
+    }
+  }
+
+  for (let i=1; i<path.length-1; i++) {
+    const p = path[i];
+    ctx.fillStyle = '#3a3010';
+    ctx.fillRect(p.x*CELL+1, p.y*CELL+1, CELL-3, CELL-3);
+  }
+
+  if (path.length) {
+    const s = path[0];
+    ctx.fillStyle = '#2a5a2a'; ctx.fillRect(s.x*CELL, s.y*CELL, CELL-1, CELL-1);
+    ctx.font = '12px sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+4);
+    const e2 = path[path.length-1];
+    ctx.fillStyle='#5a2a2a'; ctx.fillRect(e2.x*CELL, e2.y*CELL, CELL-1, CELL-1);
+    ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+4);
+  }
+
+  // Draw inferno beams behind towers
+  for (const t of towers) {
+    if (t.def.type === 'inferno' && t.beamTarget && t.heat > 0) {
+      const c = cellCenter(t.gx, t.gy);
+      drawBeam(c.x, c.y, t.beamTarget.x, t.beamTarget.y, t.heat);
+    }
+  }
+
+  for (const t of towers) {
+    const cx = t.gx*CELL+CELL/2, cy = t.gy*CELL+CELL/2;
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(t.gx*CELL+2, t.gy*CELL+2, CELL-5, CELL-5, 3);
+    ctx.fill(); ctx.stroke();
+    // Inferno: glow border when hot
+    if (t.def.type === 'inferno' && t.heat > 0) {
+      const h01 = t.heat/180;
+      ctx.strokeStyle = `rgba(255,${Math.round(150*(1-h01))},0,${0.5+h01*0.5})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(t.def.icon, cx, cy+5);
+  }
+
+  // Range preview
+  if (mode && TOWER_DEFS[mode] && hoverGX >= 0 && hoverGY >= 0) {
+    const def = TOWER_DEFS[mode];
+    const ps2 = pathSet();
+    const canPlace = !ps2.has(hoverGX+','+hoverGY) && !towerAt(hoverGX,hoverGY) && gold >= def.cost;
+    const cx = hoverGX*CELL+CELL/2, cy = hoverGY*CELL+CELL/2;
+    ctx.beginPath(); ctx.arc(cx, cy, def.range*CELL, 0, Math.PI*2);
+    ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)';
+    ctx.fill();
+    ctx.strokeStyle = canPlace
+      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : 'rgba(255,255,255,0.5)')
+      : 'rgba(255,80,80,0.5)';
+    ctx.lineWidth = 1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  for (const e of enemies) {
+    const r=e.size, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
+    const fireAmt = e.onFire ? Math.min(e.onFire/180, 1) : 0;
+    const baseR = Math.round(220*(1-hpPct)+40*hpPct);
+    const baseG = Math.round(60*hpPct+20);
+    const baseB = Math.round(180*hpPct+40);
+    const er = Math.round(baseR*(1-fireAmt) + 255*fireAmt);
+    const eg = Math.round(baseG*(1-fireAmt) + 80*fireAmt);
+    const eb = Math.round(baseB*(1-fireAmt));
+    ctx.fillStyle=`rgba(${er},${eg},${eb},0.95)`;
+    ctx.beginPath(); ctx.arc(e.x,e.y,r*pulse,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.4)';
+    ctx.lineWidth=1+fireAmt; ctx.stroke();
+    e.onFire = 0;
+
+    const bw=r*2.2;
+    ctx.fillStyle='#333'; ctx.fillRect(e.x-bw/2, e.y-r-6, bw, 3);
+    ctx.fillStyle=hpPct>0.5?'#7ec850':hpPct>0.25?'#f0c040':'#e94560';
+    ctx.fillRect(e.x-bw/2, e.y-r-6, bw*hpPct, 3);
+  }
+
+  for (const b of bullets) {
+    ctx.fillStyle=b.color; ctx.shadowColor=b.color; ctx.shadowBlur=5;
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.size,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  for (const p of particles) {
+    ctx.globalAlpha=p.life/15; ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,1.5,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+function loop() {
+  tick();
+  if (doubleSpeed) tick();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+generatePath();
+updateUI();
+
+document.querySelectorAll('#ui button').forEach(btn => {
+  btn.style.setProperty('color', '#ffffff', 'important');
+  btn.addEventListener('mouseenter', () => btn.style.setProperty('color', '#000000', 'important'));
+  btn.addEventListener('mouseleave', () => btn.style.setProperty('color', '#ffffff', 'important'));
+});
+
+loop();
+showMsg('New: 🔥 Inferno tower!\nBeam heats up — hold fire to maximize damage.', 3000);
+</script>
+</body>
+</html>
