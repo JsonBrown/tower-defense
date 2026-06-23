@@ -36,6 +36,14 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 <div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
 <div id="cursor-tower"></div>
 
+<div id="upgrade-panel" style="display:none; position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:590px; background:#16213e; border:1px solid #0f3460; border-bottom:none; border-radius:8px 8px 0 0; padding:10px 12px 8px; font-family:sans-serif; z-index:500;">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <span style="color:#f0c040; font-size:13px; font-weight:700; letter-spacing:0.5px;">🏹 Arrow Tower Upgrades</span>
+    <button id="upgrade-close-btn" onclick="closeUpgradePanel()" style="background:transparent; border:1px solid #555; color:#aaa; font-size:11px; padding:2px 7px; border-radius:4px; cursor:pointer;">✕ Close</button>
+  </div>
+  <div id="upgrade-lanes" style="display:flex; gap:8px;"></div>
+</div>
+
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -59,12 +67,59 @@ let gameOver = false, path = [], autoWave = false, autoDelay = 0;
 let hoverGX = -1, hoverGY = -1;
 let doubleSpeed = false;
 let tick_count = 0;
+let selectedTower = null;
 
 const TOWER_DEFS = {
   arrow:   { cost: 50,  range: 3,     damage: 18, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹' },
   laser:   { cost: 80,  range: 4.125, damage: 8,  rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡' },
   inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥' }
 };
+
+const ARROW_UPGRADES = [
+  [ // Lane 0 — Damage
+    { name: 'Broadhead Tips',  cost: 40,  desc: 'Damage 18 → 28' },
+    { name: 'Armor Piercing',  cost: 75,  desc: 'Damage 28 → 42' },
+    { name: 'Explosive Tips',  cost: 150, desc: 'Arrows explode — 50% splash in 40px' },
+  ],
+  [ // Lane 1 — Speed
+    { name: 'Swift Draw',      cost: 35,  desc: 'Fire rate 60 → 38 ticks' },
+    { name: 'Double Shot',     cost: 65,  desc: 'Fire 2 arrows per shot' },
+    { name: 'Arrow Barrage',   cost: 120, desc: 'Every 5th shot fires 5 arrows' },
+  ],
+  [ // Lane 2 — Range / Utility
+    { name: 'Keen Eye',        cost: 40,  desc: 'Range 3 → 4.5 tiles' },
+    { name: 'Piercing Shot',   cost: 80,  desc: 'Arrow pierces through 1 enemy' },
+    { name: 'Longbow Mastery', cost: 150, desc: 'Range 3 → 6, pierce all in line' },
+  ],
+];
+
+function getTowerStats(tower) {
+  if (tower.def.type !== 'arrow') return tower.def;
+  const [d, s, r] = tower.upgrades;
+  let damage = 18;
+  if (d >= 1) damage = 28;
+  if (d >= 2) damage = 42;
+  const splash = d >= 3;
+  let rate = 60;
+  if (s >= 1) rate = 38;
+  const doubleShot = s >= 2;
+  const barrage = s >= 3;
+  let range = 3;
+  if (r >= 1) range = 4.5;
+  if (r >= 3) range = 6;
+  let pierce = 0;
+  if (r >= 2) pierce = 1;
+  if (r >= 3) pierce = 999;
+  return { damage, rate, range, splash, doubleShot, barrage, pierce, speed: tower.def.speed, pcolor: tower.def.pcolor };
+}
+
+function advancePierce(b) {
+  const candidates = enemies.filter(e => !e.dead && e.hp > 0 && !b.pierceHit.has(e));
+  if (!candidates.length) return false;
+  candidates.sort((a, c) => c.pathIdx - a.pathIdx);
+  b.target = candidates[0];
+  return true;
+}
 
 function selectMode(m) {
   mode = (mode === m) ? null : m;
@@ -120,6 +175,19 @@ document.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseleave', () => { hoverGX = -1; hoverGY = -1; });
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (selectedTower) { closeUpgradePanel(); return; }
+    clearMode();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!selectedTower) return;
+  const panel = document.getElementById('upgrade-panel');
+  if (!panel.contains(e.target) && e.target !== canvas) closeUpgradePanel();
+}, true);
+
 function generatePath() {
   path = [];
   let x = 0, y = Math.floor(ROWS * 0.35);
@@ -158,16 +226,27 @@ canvas.addEventListener('click', e => {
   const ps = pathSet();
   if (ps.has(gx+','+gy)) return;
   const existing = towerAt(gx, gy);
-  if (mode === 'sell') {
-    if (existing) { gold += Math.floor(existing.def.cost * 0.5); towers = towers.filter(t => t !== existing); updateUI(); }
+
+  // Click on placed arrow tower with no active mode → open upgrade panel
+  if (!mode && existing && existing.def.type === 'arrow') {
+    selectedTower = selectedTower === existing ? null : existing;
+    renderUpgradePanel();
     return;
   }
-  if (!mode || !TOWER_DEFS[mode]) return;
+
+  // Click elsewhere on canvas → close upgrade panel
+  if (!mode) { closeUpgradePanel(); return; }
+
+  if (mode === 'sell') {
+    if (existing) { gold += Math.floor(existing.def.cost * 0.5); towers = towers.filter(t => t !== existing); if (selectedTower === existing) closeUpgradePanel(); updateUI(); }
+    return;
+  }
+  if (!TOWER_DEFS[mode]) return;
   if (existing) return;
   const def = TOWER_DEFS[mode];
   if (gold < def.cost) return;
   gold -= def.cost;
-  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0 });
+  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, upgrades: [0,0,0], shotsFired: 0 });
   updateUI();
   clearMode();
 });
@@ -193,6 +272,74 @@ function updateUI() {
   document.getElementById('wave').textContent = wave;
   document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
+  if (selectedTower) renderUpgradePanel();
+}
+
+function renderUpgradePanel() {
+  const panel = document.getElementById('upgrade-panel');
+  if (!selectedTower) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  const lanesEl = document.getElementById('upgrade-lanes');
+  lanesEl.innerHTML = '';
+
+  const laneNames = ['⚔️ Damage', '⚡ Speed', '🎯 Range'];
+  const laneColors = ['#e94560', '#50c8f0', '#f0c040'];
+
+  ARROW_UPGRADES.forEach((lane, li) => {
+    const col = document.createElement('div');
+    col.style.cssText = `flex:1; background:#0d1b2a; border:1px solid ${laneColors[li]}44; border-radius:6px; padding:7px;`;
+
+    const header = document.createElement('div');
+    header.style.cssText = `color:${laneColors[li]}; font-size:11px; font-weight:700; text-align:center; margin-bottom:6px; letter-spacing:0.5px;`;
+    header.textContent = laneNames[li];
+    col.appendChild(header);
+
+    const currentTier = selectedTower.upgrades[li];
+    lane.forEach((upg, ti) => {
+      const purchased = ti < currentTier;
+      const isNext = ti === currentTier;
+      const locked = ti > currentTier;
+      const card = document.createElement('div');
+      card.style.cssText = `margin-bottom:5px; padding:5px 7px; border-radius:4px; border:1px solid ${purchased ? laneColors[li]+'88' : locked ? '#333' : '#555'}; background:${purchased ? laneColors[li]+'1a' : '#111827'}; opacity:${locked ? '0.4' : '1'};`;
+
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = `font-size:11px; font-weight:600; color:${purchased ? laneColors[li] : '#ccc'};`;
+      nameEl.textContent = (purchased ? '✓ ' : '') + upg.name;
+      card.appendChild(nameEl);
+
+      const descEl = document.createElement('div');
+      descEl.style.cssText = 'font-size:10px; color:#888; margin-top:2px;';
+      descEl.textContent = upg.desc;
+      card.appendChild(descEl);
+
+      if (isNext) {
+        const btn = document.createElement('button');
+        const canAfford = gold >= upg.cost;
+        btn.textContent = `Buy ${upg.cost}g`;
+        btn.style.cssText = `margin-top:5px; width:100%; padding:3px 0; font-size:10px; background:${canAfford ? laneColors[li]+'33' : '#1a1a1a'}; color:${canAfford ? laneColors[li] : '#555'}; border:1px solid ${canAfford ? laneColors[li] : '#333'}; border-radius:3px; cursor:${canAfford ? 'pointer' : 'default'}; font-family:sans-serif;`;
+        if (canAfford) btn.onclick = () => applyUpgrade(li, ti);
+        card.appendChild(btn);
+      }
+
+      col.appendChild(card);
+    });
+
+    lanesEl.appendChild(col);
+  });
+}
+
+function applyUpgrade(laneIdx, tierIdx) {
+  if (!selectedTower) return;
+  const upg = ARROW_UPGRADES[laneIdx][tierIdx];
+  if (gold < upg.cost || selectedTower.upgrades[laneIdx] !== tierIdx) return;
+  gold -= upg.cost;
+  selectedTower.upgrades[laneIdx]++;
+  updateUI();
+}
+
+function closeUpgradePanel() {
+  selectedTower = null;
+  document.getElementById('upgrade-panel').style.display = 'none';
 }
 
 function tick() {
@@ -214,35 +361,50 @@ function tick() {
 
   for (const t of towers) {
     if (t.def.type !== 'inferno') {
-      // Normal tower logic
       t.cooldown = Math.max(0, t.cooldown-1);
       if (t.cooldown > 0) continue;
-      const c = cellCenter(t.gx, t.gy);
-      let best = null, bestIdx = -1;
-      for (const e of enemies) {
-        if (e.dead || e.hp <= 0) continue;
-        if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+
+      if (t.def.type === 'arrow') {
+        const eff = getTowerStats(t);
+        const c = cellCenter(t.gx, t.gy);
+        const inRange = enemies
+          .filter(e => !e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL)
+          .sort((a, b) => b.pathIdx - a.pathIdx);
+        if (!inRange.length) continue;
+
+        t.shotsFired++;
+        const isBarrage = eff.barrage && t.shotsFired % 5 === 0;
+        const targets = isBarrage ? inRange.slice(0, 5) : eff.doubleShot ? inRange.slice(0, 2) : inRange.slice(0, 1);
+
+        for (const target of targets) {
+          bullets.push({ x: c.x, y: c.y, target, speed: eff.speed, dmg: eff.damage, color: eff.pcolor, size: 3, type: 'arrow', pierce: eff.pierce, splash: eff.splash, pierceHit: new Set() });
+        }
+        t.cooldown = eff.rate;
+      } else {
+        // Laser tower
+        const c = cellCenter(t.gx, t.gy);
+        let best = null, bestIdx = -1;
+        for (const e of enemies) {
+          if (e.dead || e.hp <= 0) continue;
+          if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+        }
+        if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: 2, type: 'laser', pierce: 0, splash: false, pierceHit: new Set() }); }
       }
-      if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
     } else {
       // Inferno tower: beam logic
       const c = cellCenter(t.gx, t.gy);
       const range = t.def.range * CELL;
-      // find closest enemy in range, prioritize furthest along path
       let best = null, bestIdx = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
         if (dist(c.x,c.y,e.x,e.y) <= range && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
       if (best) {
-        // Check if same target — heat up, else reset
         if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
         t.heat = Math.min(t.heat + 1, 180);
-        // damage scales with heat: starts at 0.5/tick, ramps to 4/tick over 3 seconds
         const dmgPerTick = 0.3 + (t.heat / 180) * 4;
         best.hp -= dmgPerTick;
         best.onFire = t.heat;
-        // fire particles along beam
         if (tick_count % 3 === 0) {
           const frac = Math.random();
           const px = c.x + (best.x - c.x) * frac;
@@ -264,13 +426,31 @@ function tick() {
 
   for (const b of bullets) {
     if (b.done) continue;
-    if (b.target.dead || b.target.hp <= 0) { b.done = true; continue; }
+    if (b.target.dead || b.target.hp <= 0) {
+      if (b.pierce > 0 && advancePierce(b)) { b.pierce--; }
+      else { b.done = true; }
+      continue;
+    }
     const tx = b.target.x, ty = b.target.y;
     const d = dist(b.x,b.y,tx,ty);
     if (d < b.speed+2) {
-      b.target.hp -= b.dmg; b.done = true;
+      b.pierceHit.add(b.target);
+      b.target.hp -= b.dmg;
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
       if (b.target.hp <= 0) { b.target.dead=true; gold+=b.target.reward; score++; updateUI(); }
+
+      if (b.splash) {
+        for (const e of enemies) {
+          if (e.dead || e.hp <= 0 || e === b.target) continue;
+          if (dist(tx, ty, e.x, e.y) <= 40) {
+            e.hp -= b.dmg * 0.5;
+            if (e.hp <= 0) { e.dead=true; gold+=e.reward; score++; updateUI(); }
+          }
+        }
+      }
+
+      if (b.pierce > 0 && advancePierce(b)) { b.pierce--; }
+      else { b.done = true; }
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
   }
 
@@ -304,17 +484,14 @@ function drawBeam(x1, y1, x2, y2, heat) {
   const r = 255;
   const g = Math.round(180 * (1 - heat01));
 
-  // outer glow
   ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
   ctx.strokeStyle = `rgba(255,${g},0,${0.15 + heat01*0.2})`;
   ctx.lineWidth = glowW; ctx.stroke();
 
-  // mid
   ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
   ctx.strokeStyle = `rgba(255,${Math.round(g*0.6)},0,${0.5 + heat01*0.3})`;
   ctx.lineWidth = coreW * 2; ctx.stroke();
 
-  // core white-hot
   ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
   ctx.strokeStyle = `rgba(255,${200+Math.round(55*heat01)},${Math.round(200*heat01)},${0.7+heat01*0.3})`;
   ctx.lineWidth = coreW; ctx.stroke();
@@ -351,7 +528,6 @@ function draw() {
     ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+4);
   }
 
-  // Draw inferno beams behind towers
   for (const t of towers) {
     if (t.def.type === 'inferno' && t.beamTarget && t.heat > 0) {
       const c = cellCenter(t.gx, t.gy);
@@ -364,7 +540,6 @@ function draw() {
     ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.roundRect(t.gx*CELL+2, t.gy*CELL+2, CELL-5, CELL-5, 3);
     ctx.fill(); ctx.stroke();
-    // Inferno: glow border when hot
     if (t.def.type === 'inferno' && t.heat > 0) {
       const h01 = t.heat/180;
       ctx.strokeStyle = `rgba(255,${Math.round(150*(1-h01))},0,${0.5+h01*0.5})`;
@@ -375,7 +550,20 @@ function draw() {
     ctx.fillText(t.def.icon, cx, cy+5);
   }
 
-  // Range preview
+  // Selected tower highlight and range ring
+  if (selectedTower) {
+    const eff = getTowerStats(selectedTower);
+    const cx = selectedTower.gx*CELL+CELL/2, cy = selectedTower.gy*CELL+CELL/2;
+    ctx.beginPath(); ctx.arc(cx, cy, eff.range*CELL, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(240,192,64,0.05)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(240,192,64,0.6)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#f0c040'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(selectedTower.gx*CELL+2, selectedTower.gy*CELL+2, CELL-5, CELL-5, 3);
+    ctx.stroke();
+  }
+
+  // Range preview on hover
   if (mode && TOWER_DEFS[mode] && hoverGX >= 0 && hoverGY >= 0) {
     const def = TOWER_DEFS[mode];
     const ps2 = pathSet();
