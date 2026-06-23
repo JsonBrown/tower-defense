@@ -196,6 +196,10 @@ document.addEventListener('mousemove', e => {
   const rect = canvas.getBoundingClientRect();
   hoverGX = Math.floor((e.clientX - rect.left) / CELL);
   hoverGY = Math.floor((e.clientY - rect.top) / CELL);
+  if (!mode) {
+    const hovered = towerAt(hoverGX, hoverGY);
+    canvas.style.cursor = (hovered && hovered.def.type === 'arrow') ? 'pointer' : 'default';
+  }
 });
 
 canvas.addEventListener('mouseleave', () => { hoverGX = -1; hoverGY = -1; });
@@ -637,6 +641,12 @@ function draw() {
     }
     ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+5);
+    // Upgrade-available badge on arrow towers
+    if (t.def.type === 'arrow' && t.upgrades && t.upgrades.some((v, i) => v < ARROW_UPGRADES[i].length)) {
+      ctx.font = '7px sans-serif';
+      ctx.fillStyle = '#f0c040';
+      ctx.fillText('▲', t.gx*CELL + CELL - 5, t.gy*CELL + 8);
+    }
   }
 
   // Selected tower highlight and range ring
