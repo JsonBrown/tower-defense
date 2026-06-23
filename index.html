@@ -80,16 +80,19 @@ const ARROW_UPGRADES = [
     { name: 'Crippling Shot', cost: 40,  desc: 'Hits slow enemies by 30% for 1.5s' },
     { name: 'Hamstring',      cost: 75,  desc: 'Slowed enemies take +50% damage' },
     { name: 'Execute',        cost: 150, desc: 'Arrows instakill enemies below 20% HP' },
+    { name: 'Soul Rend',      cost: 250, desc: 'Execute at 30% HP; kills fire 3 bonus arrows' },
   ],
   [ // Lane 1 — Utility
-    { name: 'Marked Target',  cost: 40,  desc: 'Hits mark enemies — all towers deal +25%' },
-    { name: "Tracker's Sight",cost: 75,  desc: 'Targets highest HP enemy in range' },
-    { name: 'Eagle Eye',      cost: 150, desc: 'All arrow towers gain +1 range' },
+    { name: 'Marked Target',       cost: 40,  desc: 'Hits mark enemies — all towers deal +25%' },
+    { name: "Tracker's Sight",     cost: 75,  desc: 'Targets highest HP enemy in range' },
+    { name: 'Eagle Eye',           cost: 150, desc: 'All arrow towers gain +1 range' },
+    { name: 'Curse of Vulnerability', cost: 250, desc: 'Auto-marks all in range; marked take +75%' },
   ],
   [ // Lane 2 — Support
-    { name: 'Watchtower',     cost: 40,  desc: 'Range 3 → 5 tiles' },
-    { name: 'Signal Fire',    cost: 75,  desc: 'Kills in range award +2 gold' },
+    { name: 'Watchtower',      cost: 40,  desc: 'Range 3 → 5 tiles' },
+    { name: 'Signal Fire',     cost: 75,  desc: 'Kills in range award +2 gold' },
     { name: "Commander's Post",cost: 150, desc: 'Towers within 2 cells fire 20% faster' },
+    { name: 'War Beacon',      cost: 250, desc: 'Aura covers 5 cells, towers fire 35% faster' },
   ],
 ];
 
@@ -113,27 +116,34 @@ function getTowerStats(tower) {
     speed: tower.def.speed,
     pcolor: tower.def.pcolor,
     // Lane 0 — Damage / CC
-    appliesSlow: d >= 1,
-    hamstring:   d >= 2,
-    execute:     d >= 3,
+    appliesSlow:    d >= 1,
+    hamstring:      d >= 2,
+    execute:        d >= 3,
+    executeThresh:  d >= 4 ? 0.30 : 0.20,
+    soulRend:       d >= 4,
     // Lane 1 — Utility
-    appliesMark:  u >= 1,
-    trackerSight: u >= 2,
+    appliesMark:      u >= 1,
+    trackerSight:     u >= 2,
+    curseOfVuln:      u >= 4,  // tier 4: auto-mark all in range, +75% marked mult
     // Lane 2 — Support
-    signalFire:      s >= 2,
-    commanderPost:   s >= 3,
+    signalFire:    s >= 2,
+    commanderPost: s >= 3,
   };
 }
 
-// Returns 0.8 if this tower is within 2.5 cells of a Commander's Post arrow tower, else 1.0.
+// Returns fire-rate multiplier from a nearby Commander's Post / War Beacon.
 function getCommanderBoost(tower) {
   const cx = tower.gx * CELL + CELL / 2, cy = tower.gy * CELL + CELL / 2;
+  let best = 1.0;
   for (const t of towers) {
     if (t === tower || t.def.type !== 'arrow' || !t.upgrades || t.upgrades[2] < 3) continue;
+    const warBeacon = t.upgrades[2] >= 4;
+    const aura = warBeacon ? CELL * 5 : CELL * 2.5;
+    const boost = warBeacon ? 0.65 : 0.8;
     const tcx = t.gx * CELL + CELL / 2, tcy = t.gy * CELL + CELL / 2;
-    if (dist(cx, cy, tcx, tcy) <= CELL * 2.5) return 0.8;
+    if (dist(cx, cy, tcx, tcy) <= aura) best = Math.min(best, boost);
   }
-  return 1.0;
+  return best;
 }
 
 function selectMode(m) {
@@ -380,14 +390,25 @@ function tick() {
   for (const t of towers) {
     if (t.def.type !== 'inferno') {
       const boost = getCommanderBoost(t);
-      t.cooldown = Math.max(0, t.cooldown - 1);
-      if (t.cooldown > 0) continue;
 
       if (t.def.type === 'arrow') {
         const eff = getTowerStats(t);
         const c = cellCenter(t.gx, t.gy);
+
+        // Curse of Vulnerability: auto-mark all enemies in range every tick
+        if (eff.curseOfVuln) {
+          for (const e of enemies) {
+            if (!e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL) {
+              e.marked = true; e.markedTimer = 999999; e.markedStrong = true;
+            }
+          }
+        }
+
+        t.cooldown = Math.max(0, t.cooldown - 1);
+        if (t.cooldown > 0) continue;
+
         const inRange = enemies.filter(e => !e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL);
-        if (!inRange.length) continue;
+        if (!inRange.length) { t.cooldown = 0; continue; }
 
         let best;
         if (eff.trackerSight) {
@@ -396,18 +417,26 @@ function tick() {
           best = inRange.reduce((a, b) => b.pathIdx > a.pathIdx ? b : a);
         }
 
-        // Execute: instakill below 20% HP
-        if (eff.execute && best.hp / best.maxHp < 0.2) {
+        // Execute: instakill below threshold HP
+        if (eff.execute && best.hp / best.maxHp < eff.executeThresh) {
           const reward = best.reward + (eff.signalFire ? 2 : 0);
           best.dead = true; gold += reward; score++; updateUI();
           for (let i=0;i<6;i++) particles.push({ x:best.x, y:best.y, vx:(Math.random()-.5)*4, vy:(Math.random()-.5)*4, life:20, color:'#f0c040' });
+          // Soul Rend: fire 3 bonus arrows at other enemies on execute kill
+          if (eff.soulRend) {
+            const others = inRange.filter(e => e !== best && !e.dead && e.hp > 0).slice(0, 3);
+            for (const ne of others) {
+              bullets.push({ x: c.x, y: c.y, target: ne, speed: eff.speed * 1.5, dmg: eff.damage, color: '#ffd700', size: 4, type: 'arrow', appliesSlow: false, appliesMark: false, signalFire: eff.signalFire, soulRend: false, towerRef: t });
+            }
+          }
           t.cooldown = Math.round(eff.rate * boost);
           continue;
         }
 
+        const markedMult = best.marked ? (best.markedStrong ? 1.75 : 1.25) : 1;
         let dmg = eff.damage;
         if (eff.hamstring && best.slow) dmg = Math.round(dmg * 1.5);
-        if (best.marked) dmg = Math.round(dmg * 1.25);
+        dmg = Math.round(dmg * markedMult);
 
         bullets.push({
           x: c.x, y: c.y, target: best,
@@ -415,11 +444,14 @@ function tick() {
           appliesSlow: eff.appliesSlow,
           appliesMark: eff.appliesMark,
           signalFire: eff.signalFire,
-          hamstring: eff.hamstring,
+          soulRend: eff.soulRend,
+          towerRef: t,
         });
         t.cooldown = Math.round(eff.rate * boost);
       } else {
         // Laser tower — apply commander boost to rate
+        t.cooldown = Math.max(0, t.cooldown - 1);
+        if (t.cooldown > 0) continue;
         const c = cellCenter(t.gx, t.gy);
         let best = null, bestIdx = -1;
         for (const e of enemies) {
@@ -428,9 +460,9 @@ function tick() {
         }
         if (best) {
           let dmg = t.def.damage;
-          if (best.marked) dmg = Math.round(dmg * 1.25);
+          if (best.marked) dmg = Math.round(dmg * (best.markedStrong ? 1.75 : 1.25));
           t.cooldown = Math.round(t.def.rate * boost);
-          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: t.def.pcolor, size: 2, type: 'laser', appliesSlow: false, appliesMark: false, signalFire: false });
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: t.def.pcolor, size: 2, type: 'laser', appliesSlow: false, appliesMark: false, signalFire: false, soulRend: false, towerRef: null });
         }
       }
     } else {
@@ -484,6 +516,16 @@ function tick() {
         b.target.dead = true;
         gold += b.target.reward + (b.signalFire ? 2 : 0);
         score++; updateUI();
+        // Soul Rend: on any kill, fire 3 bonus arrows at nearby enemies
+        if (b.soulRend && b.towerRef) {
+          const t = b.towerRef;
+          const eff = getTowerStats(t);
+          const c = cellCenter(t.gx, t.gy);
+          const others = enemies.filter(e => !e.dead && e.hp > 0 && dist(c.x, c.y, e.x, e.y) <= eff.range * CELL).slice(0, 3);
+          for (const ne of others) {
+            bullets.push({ x: tx, y: ty, target: ne, speed: eff.speed * 1.5, dmg: eff.damage, color: '#ffd700', size: 4, type: 'arrow', appliesSlow: false, appliesMark: false, signalFire: eff.signalFire, soulRend: false, towerRef: null });
+          }
+        }
       }
       b.done = true;
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
@@ -570,12 +612,15 @@ function draw() {
     }
   }
 
-  // Commander's Post aura rings
+  // Commander's Post / War Beacon aura rings
   for (const t of towers) {
     if (t.def.type === 'arrow' && t.upgrades && t.upgrades[2] >= 3) {
       const cx = t.gx*CELL+CELL/2, cy = t.gy*CELL+CELL/2;
-      ctx.beginPath(); ctx.arc(cx, cy, CELL * 2.5, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(80,200,255,0.2)'; ctx.lineWidth = 1;
+      const warBeacon = t.upgrades[2] >= 4;
+      const aura = warBeacon ? CELL * 5 : CELL * 2.5;
+      ctx.beginPath(); ctx.arc(cx, cy, aura, 0, Math.PI*2);
+      ctx.strokeStyle = warBeacon ? 'rgba(255,200,50,0.35)' : 'rgba(80,200,255,0.2)';
+      ctx.lineWidth = warBeacon ? 1.5 : 1;
       ctx.setLineDash([3,4]); ctx.stroke(); ctx.setLineDash([]);
     }
   }
@@ -641,10 +686,11 @@ function draw() {
       ctx.beginPath(); ctx.arc(e.x, e.y, r*pulse+2, 0, Math.PI*2);
       ctx.strokeStyle = 'rgba(100,180,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
     }
-    // Marked visual: purple glow ring
+    // Marked visual: purple ring (bright gold if Curse of Vulnerability)
     if (e.marked) {
       ctx.beginPath(); ctx.arc(e.x, e.y, r*pulse+3, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(168,85,247,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = e.markedStrong ? 'rgba(255,180,0,0.9)' : 'rgba(168,85,247,0.7)';
+      ctx.lineWidth = e.markedStrong ? 2 : 1.5; ctx.stroke();
     }
 
     const bw=r*2.2;
