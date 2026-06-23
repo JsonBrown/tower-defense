@@ -9,7 +9,7 @@ const PORT = 8080;
 const ROOT = __dirname;
 
 const MIME = {
-  '.html': 'text/html',
+  '.html': 'text/html; charset=utf-8',
   '.js':   'application/javascript',
   '.css':  'text/css',
   '.png':  'image/png',

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #1a1a2e; overflow: hidden; cursor: default; }
@@ -344,7 +345,7 @@ function draw() {
   if (path.length) {
     const s = path[0];
     ctx.fillStyle = '#2a5a2a'; ctx.fillRect(s.x*CELL, s.y*CELL, CELL-1, CELL-1);
-    ctx.font = '12px sans-serif'; ctx.textAlign='center';
+    ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign='center';
     ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+4);
     const e2 = path[path.length-1];
     ctx.fillStyle='#5a2a2a'; ctx.fillRect(e2.x*CELL, e2.y*CELL, CELL-1, CELL-1);
@@ -371,7 +372,7 @@ function draw() {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+5);
   }
 
