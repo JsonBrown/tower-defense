@@ -191,7 +191,7 @@ canvas.addEventListener('click', e => {
 function enemyStats(type) {
   if (type === 'boss') return { hp: 500, speed: 0.55 + wave * 0.03, reward: 150, size: 13 };
   if (type === 'trojan') return { hp: wave >= 5 ? 200 : 150, speed: 0.85 + wave * 0.05, reward: 6 + wave, size: 10 };
-  if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 10 + wave * 2, size: 6 };
+  if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 15, size: 6 };
   return { hp: 100, speed: 1.1 + wave * 0.08, reward: 5, size: 7 };
 }
 
