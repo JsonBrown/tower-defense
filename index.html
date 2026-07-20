@@ -225,12 +225,18 @@ function canTargetAir(t) {
   return t.def.canTargetAir || !!towerStats(t).unlockAA;
 }
 
-// Whether a given path can still be leveled up on this tower, given the crosspathing cap.
+// Whether a given path can still be leveled up on this tower, given the crosspathing rules:
+//  - A tower may only ever have levels in 2 of its 3 paths. Once 2 paths have at least
+//    1 level, the untouched 3rd path locks and can never be started.
+//  - Once any path exceeds the crosspath cap (tier 2), every OTHER path locks at its
+//    current tier (whether touched or not) — the tower has committed to a specialization.
 function canLevelPath(t, key) {
   const level = t.paths[key];
   if (level >= MAX_PATH_LEVEL) return false;
   const others = PATH_KEYS[t.def.type].filter(k => k !== key);
-  return !others.some(k => t.paths[k] > CROSSPATH_CAP);
+  if (level === 0 && others.filter(k => t.paths[k] > 0).length >= 2) return false;
+  if (others.some(k => t.paths[k] > CROSSPATH_CAP)) return false;
+  return true;
 }
 
 function selectMode(m) {

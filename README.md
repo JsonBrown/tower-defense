@@ -39,7 +39,7 @@ Click a placed tower to open its context menu. Every tower has three independent
 - **🥶 Heat** (Inferno only) — faster heat ramp-up. Capstone unlocks **Cryo Core**: the longer the beam stays locked on a target, the colder (and slower) that enemy gets.
 - **🎯 Utility** — more range. Tier 2 unlocks anti-air targeting for Arrow/Laser (Inferno already tracks air). Capstone adds pierce (Arrow hits a 2nd enemy), chain (Laser splits damage to a 2nd enemy), or splash (Inferno beam damages nearby enemies).
 
-**Crosspathing** — you can freely level any path up to tier 2. Once a path goes past tier 2, the other two paths lock at their current tier until you sell the tower — so each tower ends up specialized in one path, with a couple of tiers spent elsewhere.
+**Crosspathing** — a tower can only ever have levels in 2 of its 3 paths: once you've put a point into two different paths, the untouched third locks for good. And once either of those two paths goes past tier 2, the other locks at its current tier — so every tower ends up committed to one main path, with a couple of tiers spent in a secondary.
 
 - **💸 Sell** — remove the tower for 50% of everything invested in it (base cost + all path upgrades).
 
