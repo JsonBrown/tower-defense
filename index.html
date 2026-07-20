@@ -194,7 +194,7 @@ function spawnEnemy(type) {
   const base = 40 + wave * 18;
   let hp, speed, reward, size;
   if (trojan) {
-    hp = Math.floor(base * 2.4 + Math.random() * base * 0.3);
+    hp = 150;
     speed = 0.85 + wave * 0.05;
     reward = 6 + wave;
     size = 10;
@@ -204,7 +204,7 @@ function spawnEnemy(type) {
     reward = 10 + wave * 2;
     size = 6;
   } else {
-    hp = base + Math.floor(Math.random() * base * 0.3);
+    hp = 100;
     speed = 1.1 + wave * 0.08;
     reward = 8 + wave * 2;
     size = 7;
