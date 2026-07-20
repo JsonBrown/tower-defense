@@ -23,9 +23,15 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #tower-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
 #tower-menu-handle:hover { background: #14407a; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
-#tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; align-items: center; gap: 10px; padding: 8px 10px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; }
-#ctx-tower-icon { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #ffffff; border: 1.5px solid #000000; border-radius: 4px; position: relative; }
-#ctx-tower-level { font-size: 11px; color: #f0c040; font-weight: 600; white-space: nowrap; }
+#tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; flex-direction: column; gap: 8px; padding: 10px 12px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; min-width: 260px; }
+#ctx-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#ctx-tower-icon { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #ffffff; border: 1.5px solid #000000; border-radius: 4px; }
+#ctx-paths { display: flex; flex-direction: column; gap: 5px; }
+.ctx-path-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ctx-path-label { font-size: 11px; color: #aaa; white-space: nowrap; }
+.ctx-path-label .lvl { color: #f0c040; font-weight: 600; }
+.ctx-path-btn { flex: none; min-width: 92px; }
+.ctx-path-locked { opacity: 0.45; }
 #ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
@@ -53,11 +59,24 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <button id="start-btn" onclick="startWave()">Start Wave ▶</button>
 </div>
 <div id="tower-context-menu">
-  <div id="ctx-tower-icon"></div>
-  <div id="ctx-tower-level" class="stat">Lv 1</div>
-  <button id="ctx-level-btn" onclick="ctxLevelUpgrade()">⬆️ Upgrade</button>
-  <button id="ctx-aa-btn" onclick="ctxAAUpgrade()">🎯 AA Upgrade</button>
-  <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
+  <div id="ctx-header">
+    <div id="ctx-tower-icon"></div>
+    <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
+  </div>
+  <div id="ctx-paths">
+    <div class="ctx-path-row" data-slot="0">
+      <span class="ctx-path-label"></span>
+      <button class="ctx-path-btn" onclick="ctxPathUpgrade(0)"></button>
+    </div>
+    <div class="ctx-path-row" data-slot="1">
+      <span class="ctx-path-label"></span>
+      <button class="ctx-path-btn" onclick="ctxPathUpgrade(1)"></button>
+    </div>
+    <div class="ctx-path-row" data-slot="2">
+      <span class="ctx-path-label"></span>
+      <button class="ctx-path-btn" onclick="ctxPathUpgrade(2)"></button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -84,35 +103,134 @@ let hoverGX = -1, hoverGY = -1;
 let doubleSpeed = false;
 let tick_count = 0;
 
-const MAX_LEVEL = 5;
+const MAX_PATH_LEVEL = 5;
+const CROSSPATH_CAP = 2; // at most one path may exceed this tier at a time
 
 const TOWER_DEFS = {
-  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false, aaUpgradeCost: 40,
-    upgradeLevels: [
-      { cost: 40,  damage: 95,  rate: 55, range: 3 },
-      { cost: 70,  damage: 120, rate: 50, range: 3.25 },
-      { cost: 110, damage: 150, rate: 45, range: 3.25 },
-      { cost: 160, damage: 190, rate: 40, range: 3.5 },
-    ] },
-  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false, aaUpgradeCost: 65,
-    upgradeLevels: [
-      { cost: 60,  damage: 26, rate: 18, range: 4.125 },
-      { cost: 100, damage: 33, rate: 16, range: 4.5 },
-      { cost: 150, damage: 42, rate: 14, range: 4.5 },
-      { cost: 220, damage: 54, rate: 12, range: 4.875 },
-    ] },
-  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true, dmgMult: 1, heatRate: 1,
-    upgradeLevels: [
-      { cost: 90,  dmgMult: 1.25, range: 3.5,  heatRate: 1 },
-      { cost: 150, dmgMult: 1.5,  range: 3.75, heatRate: 1.15 },
-      { cost: 220, dmgMult: 1.8,  range: 3.75, heatRate: 1.3 },
-      { cost: 320, dmgMult: 2.2,  range: 4,    heatRate: 1.5 },
-    ] },
+  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false },
+  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false },
+  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true },
 };
 
+// Each tier entry is the tower's stat state AT that tier (not a delta). Tier index 0 = path level 1.
+const PATH_KEYS = {
+  arrow:   ['power', 'speed', 'utility'],
+  laser:   ['power', 'speed', 'utility'],
+  inferno: ['power', 'heat',  'utility'],
+};
+
+const PATH_META = {
+  power:   { icon: '💪', name: 'Power' },
+  speed:   { icon: '⚡', name: 'Speed' },
+  heat:    { icon: '🥶', name: 'Heat' },
+  utility: { icon: '🎯', name: 'Utility' },
+};
+
+const PATH_DEFS = {
+  arrow: {
+    power: [
+      { cost: 30,  dmgMult: 1.20 },
+      { cost: 50,  dmgMult: 1.40 },
+      { cost: 90,  dmgMult: 1.65 },
+      { cost: 140, dmgMult: 1.95 },
+      { cost: 200, dmgMult: 2.40, crit: 0.20, critMult: 2 },
+    ],
+    speed: [
+      { cost: 30,  rateMult: 0.90 },
+      { cost: 50,  rateMult: 0.80 },
+      { cost: 90,  rateMult: 0.68 },
+      { cost: 140, rateMult: 0.55 },
+      { cost: 200, rateMult: 0.42, multishot: 2 },
+    ],
+    utility: [
+      { cost: 25,  rangeAdd: 0.5 },
+      { cost: 45,  rangeAdd: 0.75, unlockAA: true },
+      { cost: 80,  rangeAdd: 1.0 },
+      { cost: 120, rangeAdd: 1.25 },
+      { cost: 180, rangeAdd: 1.5, pierce: 1 },
+    ],
+  },
+  laser: {
+    power: [
+      { cost: 40,  dmgMult: 1.20 },
+      { cost: 65,  dmgMult: 1.40 },
+      { cost: 110, dmgMult: 1.65 },
+      { cost: 170, dmgMult: 1.95 },
+      { cost: 240, dmgMult: 2.40, overcharge: 0.20, overchargeMult: 2.0 },
+    ],
+    speed: [
+      { cost: 40,  rateMult: 0.88 },
+      { cost: 65,  rateMult: 0.76 },
+      { cost: 110, rateMult: 0.62 },
+      { cost: 170, rateMult: 0.46 },
+      { cost: 240, rateMult: 0.30 },
+    ],
+    utility: [
+      { cost: 35,  rangeAdd: 0.4 },
+      { cost: 55,  rangeAdd: 0.6, unlockAA: true },
+      { cost: 95,  rangeAdd: 0.8 },
+      { cost: 150, rangeAdd: 1.0 },
+      { cost: 210, rangeAdd: 1.2, chain: 0.5 },
+    ],
+  },
+  inferno: {
+    power: [
+      { cost: 60,  dmgMult: 1.2 },
+      { cost: 100, dmgMult: 1.45 },
+      { cost: 160, dmgMult: 1.75 },
+      { cost: 230, dmgMult: 2.1 },
+      { cost: 320, dmgMult: 2.5 },
+    ],
+    heat: [
+      { cost: 60,  heatRate: 1.15 },
+      { cost: 100, heatRate: 1.35 },
+      { cost: 160, heatRate: 1.6 },
+      { cost: 230, heatRate: 1.9 },
+      { cost: 320, heatRate: 2.2, cryo: true },
+    ],
+    utility: [
+      { cost: 50,  rangeAdd: 0.25 },
+      { cost: 85,  rangeAdd: 0.5 },
+      { cost: 140, rangeAdd: 0.75 },
+      { cost: 200, rangeAdd: 1.0 },
+      { cost: 280, rangeAdd: 1.25, splash: 0.3 },
+    ],
+  },
+};
+
+function newTowerPaths(type) {
+  const paths = {};
+  PATH_KEYS[type].forEach(k => paths[k] = 0);
+  return paths;
+}
+
+// Effective stats/mechanics for a tower, combining its base def with whatever
+// tier each of its 3 paths has reached (only the highest reached tier per path applies).
 function towerStats(t) {
-  if (t.level <= 1) return t.def;
-  return Object.assign({}, t.def, t.def.upgradeLevels[t.level - 2]);
+  const stats = Object.assign({ dmgMult: 1, rateMult: 1, rangeAdd: 0, heatRate: 1 }, t.def);
+  for (const key of PATH_KEYS[t.def.type]) {
+    const level = t.paths[key];
+    // Merge every tier up through the current one — numeric stats are overwritten by
+    // the latest (highest) tier, while one-time unlock flags (e.g. unlockAA) persist
+    // once granted even if a later tier's entry doesn't repeat them.
+    for (let i = 0; i < level; i++) Object.assign(stats, PATH_DEFS[t.def.type][key][i]);
+  }
+  stats.damage = t.def.damage * stats.dmgMult;
+  stats.rate = Math.max(1, Math.round(t.def.rate * stats.rateMult));
+  stats.range = t.def.range + stats.rangeAdd;
+  return stats;
+}
+
+function canTargetAir(t) {
+  return t.def.canTargetAir || !!towerStats(t).unlockAA;
+}
+
+// Whether a given path can still be leveled up on this tower, given the crosspathing cap.
+function canLevelPath(t, key) {
+  const level = t.paths[key];
+  if (level >= MAX_PATH_LEVEL) return false;
+  const others = PATH_KEYS[t.def.type].filter(k => k !== key);
+  return !others.some(k => t.paths[k] > CROSSPATH_CAP);
 }
 
 function selectMode(m) {
@@ -159,38 +277,36 @@ let ctxTower = null;
 function showTowerContext(tower) {
   ctxTower = tower;
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
-  updateCtxLevelBtn();
-  updateCtxAABtn();
+  updateCtxPaths();
   document.getElementById('tower-context-menu').style.display = 'flex';
 }
 
-function updateCtxLevelBtn() {
+function updateCtxPaths() {
   if (!ctxTower) return;
-  document.getElementById('ctx-tower-level').textContent = 'Lv ' + ctxTower.level;
-  const levelBtn = document.getElementById('ctx-level-btn');
-  if (ctxTower.level >= MAX_LEVEL) {
-    levelBtn.disabled = true;
-    levelBtn.textContent = '⬆️ Max Level';
-  } else {
-    const next = ctxTower.def.upgradeLevels[ctxTower.level - 1];
-    levelBtn.disabled = gold < next.cost;
-    levelBtn.textContent = '⬆️ Upgrade (' + next.cost + 'g)';
-  }
-}
-
-function updateCtxAABtn() {
-  if (!ctxTower) return;
-  const upgradeBtn = document.getElementById('ctx-aa-btn');
-  if (ctxTower.def.canTargetAir) {
-    upgradeBtn.disabled = true;
-    upgradeBtn.textContent = ctxTower.def.icon + ' Tracks Air';
-  } else if (ctxTower.aaUpgraded) {
-    upgradeBtn.disabled = true;
-    upgradeBtn.textContent = '🎯 Upgraded';
-  } else {
-    upgradeBtn.disabled = gold < ctxTower.def.aaUpgradeCost;
-    upgradeBtn.textContent = '🎯 AA Upgrade (' + ctxTower.def.aaUpgradeCost + 'g)';
-  }
+  const type = ctxTower.def.type;
+  const keys = PATH_KEYS[type];
+  document.querySelectorAll('.ctx-path-row').forEach((row, i) => {
+    const key = keys[i];
+    const meta = PATH_META[key];
+    const level = ctxTower.paths[key];
+    const label = row.querySelector('.ctx-path-label');
+    const btn = row.querySelector('.ctx-path-btn');
+    label.innerHTML = meta.icon + ' ' + meta.name + ' <span class="lvl">' + level + '/' + MAX_PATH_LEVEL + '</span>';
+    if (level >= MAX_PATH_LEVEL) {
+      btn.disabled = true;
+      btn.textContent = 'Maxed';
+      row.classList.remove('ctx-path-locked');
+    } else if (!canLevelPath(ctxTower, key)) {
+      btn.disabled = true;
+      btn.textContent = 'Locked';
+      row.classList.add('ctx-path-locked');
+    } else {
+      const next = PATH_DEFS[type][key][level];
+      btn.disabled = gold < next.cost;
+      btn.textContent = 'Upgrade (' + next.cost + 'g)';
+      row.classList.remove('ctx-path-locked');
+    }
+  });
 }
 
 function hideTowerContext() {
@@ -198,27 +314,18 @@ function hideTowerContext() {
   document.getElementById('tower-context-menu').style.display = 'none';
 }
 
-function ctxLevelUpgrade() {
-  if (!ctxTower || ctxTower.level >= MAX_LEVEL) return;
-  const next = ctxTower.def.upgradeLevels[ctxTower.level - 1];
+function ctxPathUpgrade(slot) {
+  if (!ctxTower) return;
+  const key = PATH_KEYS[ctxTower.def.type][slot];
+  if (!canLevelPath(ctxTower, key)) return;
+  const next = PATH_DEFS[ctxTower.def.type][key][ctxTower.paths[key]];
   if (gold < next.cost) { showMsg('Not enough gold', 1000); return; }
   gold -= next.cost;
   ctxTower.invested += next.cost;
-  ctxTower.level++;
+  ctxTower.paths[key]++;
   updateUI();
-  showMsg(ctxTower.def.icon + ' Upgraded to Lv' + ctxTower.level + '!', 1200);
-  updateCtxLevelBtn();
-}
-
-function ctxAAUpgrade() {
-  if (!ctxTower || ctxTower.def.canTargetAir || ctxTower.aaUpgraded) return;
-  if (gold < ctxTower.def.aaUpgradeCost) { showMsg('Not enough gold', 1000); return; }
-  gold -= ctxTower.def.aaUpgradeCost;
-  ctxTower.invested += ctxTower.def.aaUpgradeCost;
-  ctxTower.aaUpgraded = true;
-  updateUI();
-  showMsg('🎯 Anti-air upgrade installed!', 1200);
-  hideTowerContext();
+  showMsg(ctxTower.def.icon + ' ' + PATH_META[key].name + ' Lv' + ctxTower.paths[key] + '!', 1200);
+  updateCtxPaths();
 }
 
 function ctxSell() {
@@ -297,7 +404,7 @@ canvas.addEventListener('click', e => {
     const def = TOWER_DEFS[mode];
     if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false, level: 1, invested: def.cost });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost });
     updateUI();
     clearMode();
     return;
@@ -376,8 +483,7 @@ function updateUI() {
   document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
-  updateCtxLevelBtn();
-  updateCtxAABtn();
+  updateCtxPaths();
 }
 
 function updateTowerButtons() {
@@ -400,11 +506,29 @@ function tick() {
     if (e.dead) continue;
     const target = path[e.pathIdx];
     if (!target) { e.dead = true; lives--; updateUI(); continue; }
+    const slowMult = e.slowMult !== undefined ? e.slowMult : 1;
+    const spd = e.speed * slowMult;
     const tx = target.x*CELL+CELL/2, ty = target.y*CELL+CELL/2;
     const d = dist(e.x,e.y,tx,ty);
-    if (d < e.speed+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
-    else { e.x += (tx-e.x)/d*e.speed; e.y += (ty-e.y)/d*e.speed; }
+    if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
+    else { e.x += (tx-e.x)/d*spd; e.y += (ty-e.y)/d*spd; }
+    if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
     e.t++;
+  }
+
+  function findPierceTarget(x, y, exclude) {
+    let best = null, bestD = 24;
+    for (const e of enemies) {
+      if (e === exclude || e.dead || e.hp <= 0) continue;
+      const d = dist(x, y, e.x, e.y);
+      if (d < bestD) { best = e; bestD = d; }
+    }
+    return best;
+  }
+
+  function applyDamage(e, dmg) {
+    e.hp -= dmg;
+    if (e.hp <= 0) killEnemy(e);
   }
 
   for (const t of towers) {
@@ -414,20 +538,31 @@ function tick() {
       t.cooldown = Math.max(0, t.cooldown-1);
       if (t.cooldown > 0) continue;
       const c = cellCenter(t.gx, t.gy);
-      const canHitAir = t.def.canTargetAir || t.aaUpgraded;
+      const canHitAir = canTargetAir(t);
       let best = null, bestIdx = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
         if (e.flying && !canHitAir) continue;
         if (dist(c.x,c.y,e.x,e.y) <= stats.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
-      if (best) { t.cooldown = stats.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: stats.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
+      if (best) {
+        t.cooldown = stats.rate;
+        const shots = stats.multishot || 1;
+        for (let i = 0; i < shots; i++) {
+          let dmg = stats.damage;
+          let crit = false;
+          if (stats.crit && Math.random() < stats.crit) { dmg *= stats.critMult; crit = true; }
+          let overcharge = false;
+          if (stats.overcharge && Math.random() < stats.overcharge) { dmg *= stats.overchargeMult; overcharge = true; }
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain });
+        }
+      }
     } else {
       // Inferno tower: beam logic
       const c = cellCenter(t.gx, t.gy);
       const range = stats.range * CELL;
       // find closest enemy in range, prioritize furthest along path
-      const canHitAir = t.def.canTargetAir || t.aaUpgraded;
+      const canHitAir = canTargetAir(t);
       let best = null, bestIdx = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
@@ -438,21 +573,33 @@ function tick() {
         // Check if same target — heat up, else reset
         if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
         t.heat = Math.min(t.heat + stats.heatRate, 180);
-        // damage scales with heat: starts at 0.3/tick, ramps to 4/tick over 3 seconds, scaled by level
-        const dmgPerTick = (0.3 + (t.heat / 180) * 4) * stats.dmgMult;
-        best.hp -= dmgPerTick;
+        const heat01 = t.heat / 180;
+        // damage scales with heat: starts at 0.3/tick, ramps to 4/tick over 3 seconds, scaled by path level
+        const dmgPerTick = (0.3 + heat01 * 4) * stats.dmgMult;
+        applyDamage(best, dmgPerTick);
         best.onFire = t.heat;
+        // Cryo Core: the longer the beam stays locked on, the colder (slower) the target gets
+        if (stats.cryo && !best.dead) {
+          const slowPct = 0.05 + heat01 * 0.35;
+          best.slowMult = Math.min(best.slowMult !== undefined ? best.slowMult : 1, 1 - slowPct);
+        }
+        // Utility capstone: splash a fraction of the tick damage to enemies within 1 cell
+        if (stats.splash && !best.dead) {
+          for (const e of enemies) {
+            if (e === best || e.dead || e.hp <= 0) continue;
+            if (dist(best.x, best.y, e.x, e.y) <= CELL) applyDamage(e, dmgPerTick * stats.splash);
+          }
+        }
         // fire particles along beam
         if (tick_count % 3 === 0) {
           const frac = Math.random();
           const px = c.x + (best.x - c.x) * frac;
           const py = c.y + (best.y - c.y) * frac;
-          const heat01 = t.heat / 180;
           const r = Math.round(255);
           const g = Math.round(200 * (1 - heat01));
           particles.push({ x: px + (Math.random()-.5)*4, y: py + (Math.random()-.5)*4, vx: (Math.random()-.5)*1.5, vy: -Math.random()*2, life: 8 + Math.random()*6, color: `rgb(${r},${g},0)` });
         }
-        if (best.hp <= 0) { killEnemy(best); t.heat=0; t.heatTarget=null; }
+        if (best.dead) { t.heat=0; t.heatTarget=null; }
         t.beamTarget = best;
       } else {
         t.heat = Math.max(0, t.heat - 3);
@@ -468,9 +615,25 @@ function tick() {
     const tx = b.target.x, ty = b.target.y;
     const d = dist(b.x,b.y,tx,ty);
     if (d < b.speed+2) {
-      b.target.hp -= b.dmg; b.done = true;
+      b.done = true;
+      applyDamage(b.target, b.dmg);
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
-      if (b.target.hp <= 0) { killEnemy(b.target); }
+      // Arrow Utility capstone: pierce hits a second nearby enemy for full damage
+      if (b.pierce) {
+        const second = findPierceTarget(tx, ty, b.target);
+        if (second) {
+          applyDamage(second, b.dmg);
+          for (let i=0;i<3;i++) particles.push({ x:second.x, y:second.y, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:12, color:b.color });
+        }
+      }
+      // Laser Utility capstone: chain a fraction of damage to a second nearby enemy
+      if (b.chain) {
+        const second = findPierceTarget(tx, ty, b.target);
+        if (second) {
+          applyDamage(second, b.dmg * b.chain);
+          for (let i=0;i<3;i++) particles.push({ x:second.x, y:second.y, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:12, color:b.color });
+        }
+      }
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
   }
 
@@ -572,20 +735,24 @@ function draw() {
     }
     ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+5);
-    if (t.aaUpgraded) {
+    if (!t.def.canTargetAir && canTargetAir(t)) {
       ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     }
-    if (t.level > 1) {
-      const pips = t.level - 1;
-      const pipW = 3, gap = 1.5, totalW = pips*pipW + (pips-1)*gap;
-      let px = t.gx*CELL + CELL/2 - totalW/2;
-      const py = t.gy*CELL + CELL - 4;
-      ctx.fillStyle = '#f0c040'; ctx.strokeStyle = '#5a4200'; ctx.lineWidth = 0.75;
-      for (let i = 0; i < pips; i++) {
-        ctx.beginPath(); ctx.rect(px, py, pipW, 2); ctx.fill(); ctx.stroke();
-        px += pipW + gap;
+    // Path level bars: one thin row per path (power/speed-or-heat/utility), width = level/5
+    const pathColors = { power: '#e94560', speed: '#50c8f0', heat: '#8ec8ff', utility: '#7ec850' };
+    const keys = PATH_KEYS[t.def.type];
+    const barW = CELL - 6, barH = 1.5, barGap = 0.5;
+    let barY = t.gy*CELL + CELL - 2 - (barH+barGap)*keys.length;
+    for (const key of keys) {
+      const level = t.paths[key];
+      if (level > 0) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(t.gx*CELL+3, barY, barW, barH);
+        ctx.fillStyle = pathColors[key];
+        ctx.fillRect(t.gx*CELL+3, barY, barW * (level/MAX_PATH_LEVEL), barH);
       }
+      barY += barH + barGap;
     }
   }
 

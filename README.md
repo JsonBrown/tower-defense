@@ -32,11 +32,16 @@ Click a tower button to select it, then click an empty grid cell to place it. Cl
 
 ### Upgrading Towers
 
-Click a placed tower to open its context menu:
+Click a placed tower to open its context menu. Every tower has three independent upgrade paths, each with 5 tiers:
 
-- **⬆️ Upgrade** — spend gold to level a tower up (Lv1 → Lv5). Each level boosts damage, fire rate, and eventually range; gold pips under the tower show its current level. Inferno towers instead get a stronger, faster-heating beam.
-- **🎯 AA Upgrade** — one-time upgrade letting Arrow/Laser towers target flying enemies (Inferno tracks air by default).
-- **💸 Sell** — remove the tower for 50% of everything invested in it (base cost + upgrades).
+- **💪 Power** — raw damage. Capstone (tier 5) adds a crit chance (Arrow), an overcharge chance (Laser), or a bigger beam multiplier (Inferno).
+- **⚡ Speed** (Arrow/Laser) — faster fire rate. Capstone fires a second arrow per shot (Arrow) or pushes the laser toward near-continuous fire.
+- **🥶 Heat** (Inferno only) — faster heat ramp-up. Capstone unlocks **Cryo Core**: the longer the beam stays locked on a target, the colder (and slower) that enemy gets.
+- **🎯 Utility** — more range. Tier 2 unlocks anti-air targeting for Arrow/Laser (Inferno already tracks air). Capstone adds pierce (Arrow hits a 2nd enemy), chain (Laser splits damage to a 2nd enemy), or splash (Inferno beam damages nearby enemies).
+
+**Crosspathing** — you can freely level any path up to tier 2. Once a path goes past tier 2, the other two paths lock at their current tier until you sell the tower — so each tower ends up specialized in one path, with a couple of tiers spent elsewhere.
+
+- **💸 Sell** — remove the tower for 50% of everything invested in it (base cost + all path upgrades).
 
 ### Controls
 
