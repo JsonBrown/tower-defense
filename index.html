@@ -282,8 +282,7 @@ function tick() {
   if (waveActive && spawnQueue.length===0 && enemies.length===0) {
     waveActive = false; gold += 20+wave*5; updateUI();
     document.getElementById('start-btn').disabled = false;
-    showMsg('Wave '+wave+' clear! +'+(20+wave*5)+'g', 1800);
-    if (autoWave) autoDelay = 180;
+    if (autoWave) autoDelay = 0;
   }
 
   if (lives <= 0) {
