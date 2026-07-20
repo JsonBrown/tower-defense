@@ -233,7 +233,7 @@ function startWave() {
   wave++; waveActive = true;
   const total = 5 + wave * 3;
   const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
-  const bossIdx = wave >= 10 ? total - 1 : -1;
+  const bossIdx = wave === 10 ? total - 1 : -1;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
     if (i === bossIdx) { spawnQueue.push('boss'); continue; }
@@ -553,7 +553,7 @@ document.querySelectorAll('#ui button').forEach(btn => {
 });
 
 loop();
-showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss hides 2 trojans + 2 units inside!', 5000);
+showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10: a boss hides 2 trojans + 2 units inside!', 5000);
 </script>
 </body>
 </html>
