@@ -342,7 +342,7 @@ function tick() {
   enemies = enemies.filter(e => !e.dead && e.hp>0);
 
   if (waveActive && spawnQueue.length===0 && enemies.length===0) {
-    waveActive = false; gold += 20+wave*5; updateUI();
+    waveActive = false; gold += 45+wave*5; updateUI();
     document.getElementById('start-btn').disabled = false;
     if (autoWave) autoDelay = 0;
   }
