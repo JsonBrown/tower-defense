@@ -189,10 +189,10 @@ canvas.addEventListener('click', e => {
 });
 
 function enemyStats(type) {
-  if (type === 'boss') return { hp: 500, speed: 0.55 + wave * 0.03, reward: 40 + wave * 3, size: 13 };
-  if (type === 'trojan') return { hp: wave >= 5 ? 200 : 150, speed: 0.85 + wave * 0.05, reward: 6 + wave, size: 10 };
-  if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 10 + wave * 2, size: 6 };
-  return { hp: 100, speed: 1.1 + wave * 0.08, reward: 8 + wave * 2, size: 7 };
+  if (type === 'boss') return { hp: 500, speed: 0.55 + wave * 0.03, reward: 150, size: 13 };
+  if (type === 'trojan') return { hp: wave >= 5 ? 200 : 150, speed: 0.85 + wave * 0.05, reward: 25, size: 10 };
+  if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 15, size: 6 };
+  return { hp: 100, speed: 1.1 + wave * 0.08, reward: 5, size: 7 };
 }
 
 function spawnEnemy(type) {
@@ -233,7 +233,7 @@ function startWave() {
   wave++; waveActive = true;
   const total = 5 + wave * 3;
   const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
-  const bossIdx = wave >= 10 ? total - 1 : -1;
+  const bossIdx = wave === 10 ? total - 1 : -1;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
     if (i === bossIdx) { spawnQueue.push('boss'); continue; }
@@ -342,7 +342,7 @@ function tick() {
   enemies = enemies.filter(e => !e.dead && e.hp>0);
 
   if (waveActive && spawnQueue.length===0 && enemies.length===0) {
-    waveActive = false; gold += 20+wave*5; updateUI();
+    waveActive = false; gold += 45+wave*5; updateUI();
     document.getElementById('start-btn').disabled = false;
     if (autoWave) autoDelay = 0;
   }
@@ -553,7 +553,7 @@ document.querySelectorAll('#ui button').forEach(btn => {
 });
 
 loop();
-showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss hides 2 trojans + 2 units inside!', 5000);
+showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10: a boss hides 2 trojans + 2 units inside!', 5000);
 </script>
 </body>
 </html>
