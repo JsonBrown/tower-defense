@@ -8,8 +8,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #ui { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
 .stat { font-size: 12px; color: #aaa; }
 .stat span { color: #fff; font-weight: 500; }
-#ui button, #tower-menu button, #action-menu button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
-#ui button:hover, #tower-menu button:hover, #action-menu button:hover { background: #ffffff; border-color: #000; }
+#ui button, #tower-menu button, #action-menu button, #tower-context-menu button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
+#ui button:hover, #tower-menu button:hover, #action-menu button:hover, #tower-context-menu button:hover { background: #ffffff; border-color: #000; }
 .tower-btn { border: 2px solid #aaa !important; }
 .tower-btn.selected { border-color: #f0c040 !important; box-shadow: 0 0 0 2px #f0c040; }
 #start-btn { background: #0f3460; border-color: #e94560 !important; }
@@ -23,6 +23,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #tower-menu-handle { display: block; width: 100%; padding: 6px 16px; font-size: 12px; border: none; border-top: 1px solid #0f3460; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
 #tower-menu-handle:hover { background: #14407a; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
+#tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; gap: 8px; padding: 8px 10px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; }
+#ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
 <body>
@@ -40,8 +42,6 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
     <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
     <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
     <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
-    <button class="tower-btn" id="upgrade-btn" onclick="selectMode('upgrade')">🎯 AA Upgrade</button>
-    <button class="tower-btn" id="sell-btn" onclick="selectMode('sell')">💸 Sell</button>
   </div>
   <button id="tower-menu-handle" onclick="toggleTowerMenu()">🏗️ Towers ▲</button>
 </div>
@@ -49,6 +49,10 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <button id="auto-btn" onclick="toggleAuto()">⏩ Auto: OFF</button>
   <button id="speed-btn" onclick="toggleSpeed()">▶▶ 1×</button>
   <button id="start-btn" onclick="startWave()">Start Wave ▶</button>
+</div>
+<div id="tower-context-menu">
+  <button id="ctx-upgrade-btn" onclick="ctxUpgrade()">🎯 AA Upgrade</button>
+  <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
 </div>
 
 <script>
@@ -83,12 +87,13 @@ const TOWER_DEFS = {
 
 function selectMode(m) {
   mode = (mode === m) ? null : m;
-  ['arrow','laser','inferno','sell','upgrade'].forEach(t => {
+  ['arrow','laser','inferno'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.toggle('selected', t === mode);
   });
   updateCursor();
   setTowerMenuOpen(false);
+  hideTowerContext();
 }
 
 let towerMenuOpen = false;
@@ -101,7 +106,7 @@ function toggleTowerMenu() { setTowerMenuOpen(!towerMenuOpen); }
 
 function clearMode() {
   mode = null;
-  ['arrow','laser','inferno','sell','upgrade'].forEach(t => {
+  ['arrow','laser','inferno'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.remove('selected');
   });
@@ -115,8 +120,48 @@ function updateCursor() {
     canvas.style.cursor = 'none';
   } else {
     cursorEl.style.display = 'none';
-    canvas.style.cursor = (mode === 'sell' || mode === 'upgrade') ? 'crosshair' : 'default';
+    canvas.style.cursor = 'default';
   }
+}
+
+let ctxTower = null;
+function showTowerContext(tower) {
+  ctxTower = tower;
+  const upgradeBtn = document.getElementById('ctx-upgrade-btn');
+  if (tower.def.canTargetAir) {
+    upgradeBtn.disabled = true;
+    upgradeBtn.textContent = tower.def.icon + ' Tracks Air';
+  } else if (tower.aaUpgraded) {
+    upgradeBtn.disabled = true;
+    upgradeBtn.textContent = '🎯 Upgraded';
+  } else {
+    upgradeBtn.disabled = false;
+    upgradeBtn.textContent = '🎯 AA Upgrade (' + tower.def.aaUpgradeCost + 'g)';
+  }
+  document.getElementById('tower-context-menu').style.display = 'flex';
+}
+
+function hideTowerContext() {
+  ctxTower = null;
+  document.getElementById('tower-context-menu').style.display = 'none';
+}
+
+function ctxUpgrade() {
+  if (!ctxTower || ctxTower.def.canTargetAir || ctxTower.aaUpgraded) return;
+  if (gold < ctxTower.def.aaUpgradeCost) { showMsg('Not enough gold', 1000); return; }
+  gold -= ctxTower.def.aaUpgradeCost;
+  ctxTower.aaUpgraded = true;
+  updateUI();
+  showMsg('🎯 Anti-air upgrade installed!', 1200);
+  hideTowerContext();
+}
+
+function ctxSell() {
+  if (!ctxTower) return;
+  gold += Math.floor(ctxTower.def.cost * 0.5);
+  towers = towers.filter(t => t !== ctxTower);
+  updateUI();
+  hideTowerContext();
 }
 
 function toggleAuto() {
@@ -178,36 +223,27 @@ canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
   const gx = Math.floor((e.clientX - rect.left) / CELL);
   const gy = Math.floor((e.clientY - rect.top) / CELL);
-  if (gx < 0 || gy < 0 || gx >= COLS || gy >= ROWS) return;
+  if (gx < 0 || gy < 0 || gx >= COLS || gy >= ROWS) { hideTowerContext(); return; }
   const ps = pathSet();
-  if (ps.has(gx+','+gy)) return;
   const existing = towerAt(gx, gy);
-  if (mode === 'sell') {
-    if (existing) { gold += Math.floor(existing.def.cost * 0.5); towers = towers.filter(t => t !== existing); updateUI(); }
+
+  if (mode && TOWER_DEFS[mode]) {
+    if (ps.has(gx+','+gy) || existing) return;
+    const def = TOWER_DEFS[mode];
+    if (gold < def.cost) return;
+    gold -= def.cost;
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false });
+    updateUI();
+    clearMode();
     return;
   }
-  if (mode === 'upgrade') {
-    if (existing) {
-      if (existing.def.canTargetAir) { showMsg(existing.def.icon+' already tracks air!', 1200); }
-      else if (existing.aaUpgraded) { showMsg('Already upgraded!', 1200); }
-      else if (gold < existing.def.aaUpgradeCost) { showMsg('Not enough gold', 1000); }
-      else {
-        gold -= existing.def.aaUpgradeCost;
-        existing.aaUpgraded = true;
-        updateUI();
-        showMsg('🎯 Anti-air upgrade installed!', 1200);
-      }
-    }
-    return;
+
+  if (existing) {
+    if (ctxTower === existing) hideTowerContext();
+    else showTowerContext(existing);
+  } else {
+    hideTowerContext();
   }
-  if (!mode || !TOWER_DEFS[mode]) return;
-  if (existing) return;
-  const def = TOWER_DEFS[mode];
-  if (gold < def.cost) return;
-  gold -= def.cost;
-  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false });
-  updateUI();
-  clearMode();
 });
 
 function enemyStats(type) {
@@ -568,14 +604,14 @@ function loop() {
 generatePath();
 updateUI();
 
-document.querySelectorAll('#ui button, #tower-menu button, #action-menu button').forEach(btn => {
+document.querySelectorAll('#ui button, #tower-menu button, #action-menu button, #tower-context-menu button').forEach(btn => {
   btn.style.setProperty('color', '#ffffff', 'important');
   btn.addEventListener('mouseenter', () => btn.style.setProperty('color', '#000000', 'important'));
   btn.addEventListener('mouseleave', () => btn.style.setProperty('color', '#ffffff', 'important'));
 });
 
 loop();
-showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10: a boss hides 2 trojans + 2 units inside!', 5000);
+showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — click a 🏹/⚡ tower for a 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10: a boss hides 2 trojans + 2 units inside!', 5000);
 </script>
 </body>
 </html>
