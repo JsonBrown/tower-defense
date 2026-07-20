@@ -131,18 +131,23 @@ let ctxTower = null;
 function showTowerContext(tower) {
   ctxTower = tower;
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
+  updateCtxUpgradeBtn();
+  document.getElementById('tower-context-menu').style.display = 'flex';
+}
+
+function updateCtxUpgradeBtn() {
+  if (!ctxTower) return;
   const upgradeBtn = document.getElementById('ctx-upgrade-btn');
-  if (tower.def.canTargetAir) {
+  if (ctxTower.def.canTargetAir) {
     upgradeBtn.disabled = true;
-    upgradeBtn.textContent = tower.def.icon + ' Tracks Air';
-  } else if (tower.aaUpgraded) {
+    upgradeBtn.textContent = ctxTower.def.icon + ' Tracks Air';
+  } else if (ctxTower.aaUpgraded) {
     upgradeBtn.disabled = true;
     upgradeBtn.textContent = '🎯 Upgraded';
   } else {
-    upgradeBtn.disabled = false;
-    upgradeBtn.textContent = '🎯 AA Upgrade (' + tower.def.aaUpgradeCost + 'g)';
+    upgradeBtn.disabled = gold < ctxTower.def.aaUpgradeCost;
+    upgradeBtn.textContent = '🎯 AA Upgrade (' + ctxTower.def.aaUpgradeCost + 'g)';
   }
-  document.getElementById('tower-context-menu').style.display = 'flex';
 }
 
 function hideTowerContext() {
@@ -315,6 +320,7 @@ function updateUI() {
   document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
+  updateCtxUpgradeBtn();
 }
 
 function updateTowerButtons() {
