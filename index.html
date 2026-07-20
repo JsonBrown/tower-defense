@@ -442,6 +442,23 @@ function spawnEnemy(type) {
   });
 }
 
+const HATCH_MAP = {
+  trojan: { types: ['ground','ground','ground'], radius: 6, color: '#c8a060' },
+  boss:   { types: ['trojan','trojan','ground','ground'], radius: 10, color: '#903050' },
+};
+
+// Lives lost when an enemy of this type escapes uncaught — recursively counts every
+// unit hidden inside (trojans inside a boss each count their own hidden units too).
+function escapeCost(type) {
+  const h = HATCH_MAP[type];
+  if (!h) return 1;
+  return h.types.reduce((sum, k) => sum + escapeCost(k), 0);
+}
+
+function enemyEscapeCost(e) {
+  return escapeCost(e.boss ? 'boss' : e.trojan ? 'trojan' : 'ground');
+}
+
 function hatch(e, types, radius, particleColor) {
   types.forEach((type, i) => {
     const s = enemyStats(type);
@@ -462,8 +479,8 @@ function killEnemy(e) {
   gold += e.reward;
   score++;
   updateUI();
-  if (e.trojan) hatch(e, ['ground','ground','ground'], 6, '#c8a060');
-  else if (e.boss) hatch(e, ['trojan','trojan','ground','ground'], 10, '#903050');
+  const h = e.trojan ? HATCH_MAP.trojan : e.boss ? HATCH_MAP.boss : null;
+  if (h) hatch(e, h.types, h.radius, h.color);
 }
 
 function startWave() {
@@ -513,12 +530,12 @@ function tick() {
   for (const e of enemies) {
     if (e.dead) continue;
     const target = path[e.pathIdx];
-    if (!target) { e.dead = true; lives--; updateUI(); continue; }
+    if (!target) { e.dead = true; lives -= enemyEscapeCost(e); updateUI(); continue; }
     const slowMult = e.slowMult !== undefined ? e.slowMult : 1;
     const spd = e.speed * slowMult;
     const tx = target.x*CELL+CELL/2, ty = target.y*CELL+CELL/2;
     const d = dist(e.x,e.y,tx,ty);
-    if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives--; updateUI(); } }
+    if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives -= enemyEscapeCost(e); updateUI(); } }
     else { e.x += (tx-e.x)/d*spd; e.y += (ty-e.y)/d*spd; }
     if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
     e.t++;
