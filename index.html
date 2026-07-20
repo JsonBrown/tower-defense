@@ -190,19 +190,58 @@ canvas.addEventListener('click', e => {
 
 function spawnEnemy(type) {
   const flying = type === 'air';
+  const trojan = type === 'trojan';
   const base = 40 + wave * 18;
-  const hp = flying ? Math.floor(base * 0.55 + Math.random() * base * 0.2) : base + Math.floor(Math.random() * base * 0.3);
-  const speed = flying ? 1.7 + wave * 0.07 : 1.1 + wave * 0.08;
-  const reward = flying ? 10 + wave * 2 : 8 + wave * 2;
-  enemies.push({ flying, pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed, reward, size: flying ? 6 : 7, t: 0 });
+  let hp, speed, reward, size;
+  if (trojan) {
+    hp = Math.floor(base * 2.4 + Math.random() * base * 0.3);
+    speed = 0.85 + wave * 0.05;
+    reward = 6 + wave;
+    size = 10;
+  } else if (flying) {
+    hp = Math.floor(base * 0.55 + Math.random() * base * 0.2);
+    speed = 1.7 + wave * 0.07;
+    reward = 10 + wave * 2;
+    size = 6;
+  } else {
+    hp = base + Math.floor(Math.random() * base * 0.3);
+    speed = 1.1 + wave * 0.08;
+    reward = 8 + wave * 2;
+    size = 7;
+  }
+  enemies.push({ flying, trojan, pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed, reward, size, t: 0 });
+}
+
+function killEnemy(e) {
+  e.dead = true;
+  gold += e.reward;
+  score++;
+  updateUI();
+  if (e.trojan) {
+    const base = 40 + wave * 18;
+    for (let i = 0; i < 3; i++) {
+      const hp = Math.floor(base * 0.35 + Math.random() * base * 0.1);
+      const ang = (Math.PI * 2 / 3) * i;
+      enemies.push({
+        flying: false, trojan: false, pathIdx: e.pathIdx,
+        x: e.x + Math.cos(ang) * 6, y: e.y + Math.sin(ang) * 6,
+        hp, maxHp: hp, speed: 1.5 + wave * 0.08, reward: 5 + wave, size: 5, t: 0
+      });
+    }
+    for (let i = 0; i < 14; i++) {
+      particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*4, vy: (Math.random()-.5)*4, life: 18+Math.random()*8, color: '#c8a060' });
+    }
+  }
 }
 
 function startWave() {
   if (waveActive || gameOver) return;
   wave++; waveActive = true;
   const total = 5 + wave * 3;
+  const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
+    if (i === trojanIdx) { spawnQueue.push('trojan'); continue; }
     const isAir = wave >= 3 && (i % 4 === 3);
     spawnQueue.push(isAir ? 'air' : 'ground');
   }
@@ -280,7 +319,7 @@ function tick() {
           const g = Math.round(200 * (1 - heat01));
           particles.push({ x: px + (Math.random()-.5)*4, y: py + (Math.random()-.5)*4, vx: (Math.random()-.5)*1.5, vy: -Math.random()*2, life: 8 + Math.random()*6, color: `rgb(${r},${g},0)` });
         }
-        if (best.hp <= 0) { best.dead=true; gold+=best.reward; score++; updateUI(); t.heat=0; t.heatTarget=null; }
+        if (best.hp <= 0) { killEnemy(best); t.heat=0; t.heatTarget=null; }
         t.beamTarget = best;
       } else {
         t.heat = Math.max(0, t.heat - 3);
@@ -298,7 +337,7 @@ function tick() {
     if (d < b.speed+2) {
       b.target.hp -= b.dmg; b.done = true;
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
-      if (b.target.hp <= 0) { b.target.dead=true; gold+=b.target.reward; score++; updateUI(); }
+      if (b.target.hp <= 0) { killEnemy(b.target); }
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
   }
 
@@ -443,6 +482,15 @@ function draw() {
       ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.6)';
       ctx.lineWidth=1+fireAmt; ctx.strokeRect(-r*pulse, -r*pulse, r*2*pulse, r*2*pulse);
       ctx.restore();
+    } else if (e.trojan) {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},40,0.95)` : '#8a5a2a';
+      ctx.beginPath(); ctx.roundRect(e.x-rr, e.y-rr, rr*2, rr*2, 3); ctx.fill();
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,220,150,0.7)';
+      ctx.lineWidth = 1.5+fireAmt; ctx.stroke();
+      ctx.font = Math.round(rr*1.4)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🐴', e.x, e.y+rr*0.5);
     } else {
       const baseR = Math.round(220*(1-hpPct)+40*hpPct);
       const baseG = Math.round(60*hpPct+20);
@@ -493,7 +541,7 @@ document.querySelectorAll('#ui button').forEach(btn => {
 });
 
 loop();
-showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.', 4000);
+showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!', 4500);
 </script>
 </body>
 </html>
