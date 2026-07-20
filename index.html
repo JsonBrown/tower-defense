@@ -193,7 +193,7 @@ function spawnEnemy(type) {
   const trojan = type === 'trojan';
   let hp, speed, reward, size;
   if (trojan) {
-    hp = 150;
+    hp = wave >= 5 ? 200 : 150;
     speed = 0.85 + wave * 0.05;
     reward = 6 + wave;
     size = 10;
@@ -218,7 +218,7 @@ function killEnemy(e) {
   updateUI();
   if (e.trojan) {
     for (let i = 0; i < 3; i++) {
-      const hp = 125;
+      const hp = wave >= 5 ? 175 : 125;
       const ang = (Math.PI * 2 / 3) * i;
       enemies.push({
         flying: false, trojan: false, pathIdx: e.pathIdx,
