@@ -233,7 +233,7 @@ canvas.addEventListener('click', e => {
   if (mode && TOWER_DEFS[mode]) {
     if (ps.has(gx+','+gy) || existing) return;
     const def = TOWER_DEFS[mode];
-    if (gold < def.cost) return;
+    if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
     towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false });
     updateUI();
