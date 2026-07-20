@@ -88,6 +88,7 @@ const TOWER_DEFS = {
 };
 
 function selectMode(m) {
+  if (gold < TOWER_DEFS[m].cost) return;
   mode = (mode === m) ? null : m;
   ['arrow','laser','inferno'].forEach(t => {
     const b = document.getElementById(t+'-btn');
@@ -313,6 +314,17 @@ function updateUI() {
   document.getElementById('wave').textContent = wave;
   document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
+  updateTowerButtons();
+}
+
+function updateTowerButtons() {
+  Object.keys(TOWER_DEFS).forEach(t => {
+    const b = document.getElementById(t+'-btn');
+    if (!b) return;
+    const affordable = gold >= TOWER_DEFS[t].cost;
+    b.disabled = !affordable;
+    if (!affordable && mode === t) clearMode();
+  });
 }
 
 function tick() {
