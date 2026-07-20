@@ -17,13 +17,14 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #auto-btn.on { background: #1a2a1a; border-color: #4a8a4a !important; }
 #speed-btn.on { background: #2a1a3a; border-color: #7a40aa !important; }
 #cursor-tower { position: fixed; pointer-events: none; font-size: 20px; transform: translate(-50%, -50%); display: none; z-index: 999; filter: drop-shadow(0 0 6px rgba(255,150,0,0.8)); }
-#tower-menu { position: fixed; left: 0; bottom: 0; z-index: 500; background: #16213e; border-top: 1px solid #0f3460; border-right: 1px solid #0f3460; }
-#tower-menu-content { max-height: 0; overflow: hidden; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; transition: max-height 0.25s ease, padding 0.25s ease; padding: 0 10px; }
-#tower-menu.open #tower-menu-content { max-height: 140px; padding: 10px; }
-#tower-menu-handle { display: block; width: 100%; padding: 6px 16px; font-size: 12px; border: none; border-top: 1px solid #0f3460; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
+#tower-menu { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-left: none; border-radius: 0 8px 8px 0; }
+#tower-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
+#tower-menu.open #tower-menu-content { max-width: 160px; padding: 10px; }
+#tower-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
 #tower-menu-handle:hover { background: #14407a; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
-#tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; gap: 8px; padding: 8px 10px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; }
+#tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; align-items: center; gap: 10px; padding: 8px 10px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; }
+#ctx-tower-icon { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #ffffff; border: 1.5px solid #000000; border-radius: 4px; }
 #ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
@@ -38,12 +39,12 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 <div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
 <div id="cursor-tower"></div>
 <div id="tower-menu">
+  <button id="tower-menu-handle" onclick="toggleTowerMenu()">🏗️ Towers ▶</button>
   <div id="tower-menu-content">
     <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
     <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
     <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
   </div>
-  <button id="tower-menu-handle" onclick="toggleTowerMenu()">🏗️ Towers ▲</button>
 </div>
 <div id="action-menu">
   <button id="auto-btn" onclick="toggleAuto()">⏩ Auto: OFF</button>
@@ -51,6 +52,7 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <button id="start-btn" onclick="startWave()">Start Wave ▶</button>
 </div>
 <div id="tower-context-menu">
+  <div id="ctx-tower-icon"></div>
   <button id="ctx-upgrade-btn" onclick="ctxUpgrade()">🎯 AA Upgrade</button>
   <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
 </div>
@@ -100,7 +102,7 @@ let towerMenuOpen = false;
 function setTowerMenuOpen(open) {
   towerMenuOpen = open;
   document.getElementById('tower-menu').classList.toggle('open', open);
-  document.getElementById('tower-menu-handle').textContent = '🏗️ Towers ' + (open ? '▼' : '▲');
+  document.getElementById('tower-menu-handle').textContent = '🏗️ Towers ' + (open ? '◀' : '▶');
 }
 function toggleTowerMenu() { setTowerMenuOpen(!towerMenuOpen); }
 
@@ -127,6 +129,7 @@ function updateCursor() {
 let ctxTower = null;
 function showTowerContext(tower) {
   ctxTower = tower;
+  document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
   const upgradeBtn = document.getElementById('ctx-upgrade-btn');
   if (tower.def.canTargetAir) {
     upgradeBtn.disabled = true;
