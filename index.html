@@ -28,6 +28,7 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
   <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
   <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
+  <button class="tower-btn" id="upgrade-btn" onclick="selectMode('upgrade')">🎯 AA Upgrade</button>
   <button class="tower-btn" id="sell-btn" onclick="selectMode('sell')">💸 Sell</button>
   <button id="auto-btn" onclick="toggleAuto()">⏩ Auto: OFF</button>
   <button id="speed-btn" onclick="toggleSpeed()">▶▶ 1×</button>
@@ -62,14 +63,14 @@ let doubleSpeed = false;
 let tick_count = 0;
 
 const TOWER_DEFS = {
-  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹' },
-  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡' },
-  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥' }
+  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false, aaUpgradeCost: 40 },
+  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false, aaUpgradeCost: 65 },
+  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true }
 };
 
 function selectMode(m) {
   mode = (mode === m) ? null : m;
-  ['arrow','laser','inferno','sell'].forEach(t => {
+  ['arrow','laser','inferno','sell','upgrade'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.toggle('selected', t === mode);
   });
@@ -78,7 +79,7 @@ function selectMode(m) {
 
 function clearMode() {
   mode = null;
-  ['arrow','laser','inferno','sell'].forEach(t => {
+  ['arrow','laser','inferno','sell','upgrade'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.remove('selected');
   });
@@ -92,7 +93,7 @@ function updateCursor() {
     canvas.style.cursor = 'none';
   } else {
     cursorEl.style.display = 'none';
-    canvas.style.cursor = mode === 'sell' ? 'crosshair' : 'default';
+    canvas.style.cursor = (mode === 'sell' || mode === 'upgrade') ? 'crosshair' : 'default';
   }
 }
 
@@ -163,26 +164,83 @@ canvas.addEventListener('click', e => {
     if (existing) { gold += Math.floor(existing.def.cost * 0.5); towers = towers.filter(t => t !== existing); updateUI(); }
     return;
   }
+  if (mode === 'upgrade') {
+    if (existing) {
+      if (existing.def.canTargetAir) { showMsg(existing.def.icon+' already tracks air!', 1200); }
+      else if (existing.aaUpgraded) { showMsg('Already upgraded!', 1200); }
+      else if (gold < existing.def.aaUpgradeCost) { showMsg('Not enough gold', 1000); }
+      else {
+        gold -= existing.def.aaUpgradeCost;
+        existing.aaUpgraded = true;
+        updateUI();
+        showMsg('🎯 Anti-air upgrade installed!', 1200);
+      }
+    }
+    return;
+  }
   if (!mode || !TOWER_DEFS[mode]) return;
   if (existing) return;
   const def = TOWER_DEFS[mode];
   if (gold < def.cost) return;
   gold -= def.cost;
-  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0 });
+  towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false });
   updateUI();
   clearMode();
 });
 
-function spawnEnemy() {
-  const base = 40 + wave * 18;
-  const hp = base + Math.floor(Math.random() * base * 0.3);
-  enemies.push({ pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2, hp, maxHp: hp, speed: 1.1+wave*0.08, reward: 8+wave*2, size: 7, t: 0 });
+function enemyStats(type) {
+  if (type === 'boss') return { hp: 500, speed: 0.55 + wave * 0.03, reward: 40 + wave * 3, size: 13 };
+  if (type === 'trojan') return { hp: wave >= 5 ? 200 : 150, speed: 0.85 + wave * 0.05, reward: 6 + wave, size: 10 };
+  if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 10 + wave * 2, size: 6 };
+  return { hp: 100, speed: 1.1 + wave * 0.08, reward: 8 + wave * 2, size: 7 };
+}
+
+function spawnEnemy(type) {
+  const s = enemyStats(type);
+  enemies.push({
+    flying: type === 'air', trojan: type === 'trojan', boss: type === 'boss',
+    pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2,
+    hp: s.hp, maxHp: s.hp, speed: s.speed, reward: s.reward, size: s.size, t: 0
+  });
+}
+
+function hatch(e, types, radius, particleColor) {
+  types.forEach((type, i) => {
+    const s = enemyStats(type);
+    const ang = (Math.PI * 2 / types.length) * i;
+    enemies.push({
+      flying: false, trojan: type === 'trojan', boss: false, pathIdx: e.pathIdx,
+      x: e.x + Math.cos(ang) * radius, y: e.y + Math.sin(ang) * radius,
+      hp: s.hp, maxHp: s.hp, speed: s.speed, reward: s.reward, size: s.size, t: 0
+    });
+  });
+  for (let i = 0; i < 14; i++) {
+    particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*4, vy: (Math.random()-.5)*4, life: 18+Math.random()*8, color: particleColor });
+  }
+}
+
+function killEnemy(e) {
+  e.dead = true;
+  gold += e.reward;
+  score++;
+  updateUI();
+  if (e.trojan) hatch(e, ['ground','ground','ground'], 6, '#c8a060');
+  else if (e.boss) hatch(e, ['trojan','trojan','ground','ground'], 10, '#903050');
 }
 
 function startWave() {
   if (waveActive || gameOver) return;
   wave++; waveActive = true;
-  spawnQueue = Array(5 + wave * 3).fill(0);
+  const total = 5 + wave * 3;
+  const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
+  const bossIdx = wave >= 10 ? total - 1 : -1;
+  spawnQueue = [];
+  for (let i = 0; i < total; i++) {
+    if (i === bossIdx) { spawnQueue.push('boss'); continue; }
+    if (i === trojanIdx) { spawnQueue.push('trojan'); continue; }
+    const isAir = wave >= 3 && (i % 4 === 3);
+    spawnQueue.push(isAir ? 'air' : 'ground');
+  }
   spawnTimer = 0;
   document.getElementById('start-btn').disabled = true;
   updateUI();
@@ -200,7 +258,7 @@ function tick() {
   if (gameOver) return;
   tick_count++;
   if (!waveActive && autoWave) { autoDelay--; if (autoDelay <= 0) startWave(); }
-  if (waveActive && spawnQueue.length > 0) { spawnTimer--; if (spawnTimer <= 0) { spawnEnemy(); spawnQueue.pop(); spawnTimer = 55; } }
+  if (waveActive && spawnQueue.length > 0) { spawnTimer--; if (spawnTimer <= 0) { spawnEnemy(spawnQueue.shift()); spawnTimer = 55; } }
 
   for (const e of enemies) {
     if (e.dead) continue;
@@ -219,9 +277,11 @@ function tick() {
       t.cooldown = Math.max(0, t.cooldown-1);
       if (t.cooldown > 0) continue;
       const c = cellCenter(t.gx, t.gy);
+      const canHitAir = t.def.canTargetAir || t.aaUpgraded;
       let best = null, bestIdx = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
+        if (e.flying && !canHitAir) continue;
         if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
       if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
@@ -230,9 +290,11 @@ function tick() {
       const c = cellCenter(t.gx, t.gy);
       const range = t.def.range * CELL;
       // find closest enemy in range, prioritize furthest along path
+      const canHitAir = t.def.canTargetAir || t.aaUpgraded;
       let best = null, bestIdx = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
+        if (e.flying && !canHitAir) continue;
         if (dist(c.x,c.y,e.x,e.y) <= range && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
       if (best) {
@@ -253,7 +315,7 @@ function tick() {
           const g = Math.round(200 * (1 - heat01));
           particles.push({ x: px + (Math.random()-.5)*4, y: py + (Math.random()-.5)*4, vx: (Math.random()-.5)*1.5, vy: -Math.random()*2, life: 8 + Math.random()*6, color: `rgb(${r},${g},0)` });
         }
-        if (best.hp <= 0) { best.dead=true; gold+=best.reward; score++; updateUI(); t.heat=0; t.heatTarget=null; }
+        if (best.hp <= 0) { killEnemy(best); t.heat=0; t.heatTarget=null; }
         t.beamTarget = best;
       } else {
         t.heat = Math.max(0, t.heat - 3);
@@ -271,7 +333,7 @@ function tick() {
     if (d < b.speed+2) {
       b.target.hp -= b.dmg; b.done = true;
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
-      if (b.target.hp <= 0) { b.target.dead=true; gold+=b.target.reward; score++; updateUI(); }
+      if (b.target.hp <= 0) { killEnemy(b.target); }
     } else { b.x+=(tx-b.x)/d*b.speed; b.y+=(ty-b.y)/d*b.speed; }
   }
 
@@ -373,6 +435,10 @@ function draw() {
     }
     ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+5);
+    if (t.aaUpgraded) {
+      ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
   }
 
   // Range preview
@@ -393,22 +459,68 @@ function draw() {
   for (const e of enemies) {
     const r=e.size, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
     const fireAmt = e.onFire ? Math.min(e.onFire/180, 1) : 0;
-    const baseR = Math.round(220*(1-hpPct)+40*hpPct);
-    const baseG = Math.round(60*hpPct+20);
-    const baseB = Math.round(180*hpPct+40);
-    const er = Math.round(baseR*(1-fireAmt) + 255*fireAmt);
-    const eg = Math.round(baseG*(1-fireAmt) + 80*fireAmt);
-    const eb = Math.round(baseB*(1-fireAmt));
-    ctx.fillStyle=`rgba(${er},${eg},${eb},0.95)`;
-    ctx.beginPath(); ctx.arc(e.x,e.y,r*pulse,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.4)';
-    ctx.lineWidth=1+fireAmt; ctx.stroke();
+    const barY = e.flying ? e.y-r-10 : e.y-r-6;
+
+    if (e.flying) {
+      ctx.fillStyle = 'rgba(0,0,0,0.22)';
+      ctx.beginPath(); ctx.ellipse(e.x, e.y+3, r*0.85, r*0.35, 0, 0, Math.PI*2); ctx.fill();
+
+      const baseR = Math.round(90+90*(1-hpPct));
+      const baseG = Math.round(170+50*hpPct);
+      const er = Math.round(baseR*(1-fireAmt) + 255*fireAmt);
+      const eg = Math.round(baseG*(1-fireAmt) + 90*fireAmt);
+      ctx.save();
+      ctx.translate(e.x, e.y-4);
+      ctx.rotate(Math.PI/4);
+      ctx.fillStyle = `rgba(${er},${eg},255,0.95)`;
+      ctx.fillRect(-r*pulse, -r*pulse, r*2*pulse, r*2*pulse);
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.6)';
+      ctx.lineWidth=1+fireAmt; ctx.strokeRect(-r*pulse, -r*pulse, r*2*pulse, r*2*pulse);
+      ctx.restore();
+    } else if (e.boss) {
+      const rr = r*pulse;
+      ctx.fillStyle = 'rgba(140,20,60,0.25)';
+      ctx.beginPath(); ctx.arc(e.x, e.y, rr+5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#5a1030';
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI/4*i - Math.PI/8;
+        const px = e.x + Math.cos(a)*rr, py = e.y + Math.sin(a)*rr;
+        i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,120,160,0.8)';
+      ctx.lineWidth = 2+fireAmt; ctx.stroke();
+      ctx.font = Math.round(rr*1.3)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('💀', e.x, e.y+rr*0.45);
+    } else if (e.trojan) {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},40,0.95)` : '#8a5a2a';
+      ctx.beginPath(); ctx.roundRect(e.x-rr, e.y-rr, rr*2, rr*2, 3); ctx.fill();
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,220,150,0.7)';
+      ctx.lineWidth = 1.5+fireAmt; ctx.stroke();
+      ctx.font = Math.round(rr*1.4)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🐴', e.x, e.y+rr*0.5);
+    } else {
+      const baseR = Math.round(220*(1-hpPct)+40*hpPct);
+      const baseG = Math.round(60*hpPct+20);
+      const baseB = Math.round(180*hpPct+40);
+      const er = Math.round(baseR*(1-fireAmt) + 255*fireAmt);
+      const eg = Math.round(baseG*(1-fireAmt) + 80*fireAmt);
+      const eb = Math.round(baseB*(1-fireAmt));
+      ctx.fillStyle=`rgba(${er},${eg},${eb},0.95)`;
+      ctx.beginPath(); ctx.arc(e.x,e.y,r*pulse,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,255,255,0.4)';
+      ctx.lineWidth=1+fireAmt; ctx.stroke();
+    }
     e.onFire = 0;
 
     const bw=r*2.2;
-    ctx.fillStyle='#333'; ctx.fillRect(e.x-bw/2, e.y-r-6, bw, 3);
+    ctx.fillStyle='#333'; ctx.fillRect(e.x-bw/2, barY, bw, 3);
     ctx.fillStyle=hpPct>0.5?'#7ec850':hpPct>0.25?'#f0c040':'#e94560';
-    ctx.fillRect(e.x-bw/2, e.y-r-6, bw*hpPct, 3);
+    ctx.fillRect(e.x-bw/2, barY, bw*hpPct, 3);
   }
 
   for (const b of bullets) {
@@ -441,7 +553,7 @@ document.querySelectorAll('#ui button').forEach(btn => {
 });
 
 loop();
-showMsg('New: 🔥 Inferno tower!\nBeam heats up — hold fire to maximize damage.', 3000);
+showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — upgrade 🏹/⚡ with 🎯 AA Upgrade to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss hides 2 trojans + 2 units inside!', 5000);
 </script>
 </body>
 </html>
