@@ -191,7 +191,6 @@ canvas.addEventListener('click', e => {
 function spawnEnemy(type) {
   const flying = type === 'air';
   const trojan = type === 'trojan';
-  const base = 40 + wave * 18;
   let hp, speed, reward, size;
   if (trojan) {
     hp = 150;
@@ -199,7 +198,7 @@ function spawnEnemy(type) {
     reward = 6 + wave;
     size = 10;
   } else if (flying) {
-    hp = Math.floor(base * 0.55 + Math.random() * base * 0.2);
+    hp = 125;
     speed = 1.7 + wave * 0.07;
     reward = 10 + wave * 2;
     size = 6;
@@ -218,9 +217,8 @@ function killEnemy(e) {
   score++;
   updateUI();
   if (e.trojan) {
-    const base = 40 + wave * 18;
     for (let i = 0; i < 3; i++) {
-      const hp = Math.floor(base * 0.35 + Math.random() * base * 0.1);
+      const hp = 125;
       const ang = (Math.PI * 2 / 3) * i;
       enemies.push({
         flying: false, trojan: false, pathIdx: e.pathIdx,
