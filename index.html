@@ -24,7 +24,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #tower-menu-handle:hover { background: #14407a; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
 #tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; align-items: center; gap: 10px; padding: 8px 10px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; }
-#ctx-tower-icon { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #ffffff; border: 1.5px solid #000000; border-radius: 4px; }
+#ctx-tower-icon { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 16px; background: #ffffff; border: 1.5px solid #000000; border-radius: 4px; position: relative; }
+#ctx-tower-level { font-size: 11px; color: #f0c040; font-weight: 600; white-space: nowrap; }
 #ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
@@ -53,7 +54,9 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 </div>
 <div id="tower-context-menu">
   <div id="ctx-tower-icon"></div>
-  <button id="ctx-upgrade-btn" onclick="ctxUpgrade()">🎯 AA Upgrade</button>
+  <div id="ctx-tower-level" class="stat">Lv 1</div>
+  <button id="ctx-level-btn" onclick="ctxLevelUpgrade()">⬆️ Upgrade</button>
+  <button id="ctx-aa-btn" onclick="ctxAAUpgrade()">🎯 AA Upgrade</button>
   <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
 </div>
 
@@ -81,11 +84,36 @@ let hoverGX = -1, hoverGY = -1;
 let doubleSpeed = false;
 let tick_count = 0;
 
+const MAX_LEVEL = 5;
+
 const TOWER_DEFS = {
-  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false, aaUpgradeCost: 40 },
-  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false, aaUpgradeCost: 65 },
-  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true }
+  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false, aaUpgradeCost: 40,
+    upgradeLevels: [
+      { cost: 40,  damage: 95,  rate: 55, range: 3 },
+      { cost: 70,  damage: 120, rate: 50, range: 3.25 },
+      { cost: 110, damage: 150, rate: 45, range: 3.25 },
+      { cost: 160, damage: 190, rate: 40, range: 3.5 },
+    ] },
+  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false, aaUpgradeCost: 65,
+    upgradeLevels: [
+      { cost: 60,  damage: 26, rate: 18, range: 4.125 },
+      { cost: 100, damage: 33, rate: 16, range: 4.5 },
+      { cost: 150, damage: 42, rate: 14, range: 4.5 },
+      { cost: 220, damage: 54, rate: 12, range: 4.875 },
+    ] },
+  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true, dmgMult: 1, heatRate: 1,
+    upgradeLevels: [
+      { cost: 90,  dmgMult: 1.25, range: 3.5,  heatRate: 1 },
+      { cost: 150, dmgMult: 1.5,  range: 3.75, heatRate: 1.15 },
+      { cost: 220, dmgMult: 1.8,  range: 3.75, heatRate: 1.3 },
+      { cost: 320, dmgMult: 2.2,  range: 4,    heatRate: 1.5 },
+    ] },
 };
+
+function towerStats(t) {
+  if (t.level <= 1) return t.def;
+  return Object.assign({}, t.def, t.def.upgradeLevels[t.level - 2]);
+}
 
 function selectMode(m) {
   if (gold < TOWER_DEFS[m].cost) return;
@@ -131,13 +159,28 @@ let ctxTower = null;
 function showTowerContext(tower) {
   ctxTower = tower;
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
-  updateCtxUpgradeBtn();
+  updateCtxLevelBtn();
+  updateCtxAABtn();
   document.getElementById('tower-context-menu').style.display = 'flex';
 }
 
-function updateCtxUpgradeBtn() {
+function updateCtxLevelBtn() {
   if (!ctxTower) return;
-  const upgradeBtn = document.getElementById('ctx-upgrade-btn');
+  document.getElementById('ctx-tower-level').textContent = 'Lv ' + ctxTower.level;
+  const levelBtn = document.getElementById('ctx-level-btn');
+  if (ctxTower.level >= MAX_LEVEL) {
+    levelBtn.disabled = true;
+    levelBtn.textContent = '⬆️ Max Level';
+  } else {
+    const next = ctxTower.def.upgradeLevels[ctxTower.level - 1];
+    levelBtn.disabled = gold < next.cost;
+    levelBtn.textContent = '⬆️ Upgrade (' + next.cost + 'g)';
+  }
+}
+
+function updateCtxAABtn() {
+  if (!ctxTower) return;
+  const upgradeBtn = document.getElementById('ctx-aa-btn');
   if (ctxTower.def.canTargetAir) {
     upgradeBtn.disabled = true;
     upgradeBtn.textContent = ctxTower.def.icon + ' Tracks Air';
@@ -155,10 +198,23 @@ function hideTowerContext() {
   document.getElementById('tower-context-menu').style.display = 'none';
 }
 
-function ctxUpgrade() {
+function ctxLevelUpgrade() {
+  if (!ctxTower || ctxTower.level >= MAX_LEVEL) return;
+  const next = ctxTower.def.upgradeLevels[ctxTower.level - 1];
+  if (gold < next.cost) { showMsg('Not enough gold', 1000); return; }
+  gold -= next.cost;
+  ctxTower.invested += next.cost;
+  ctxTower.level++;
+  updateUI();
+  showMsg(ctxTower.def.icon + ' Upgraded to Lv' + ctxTower.level + '!', 1200);
+  updateCtxLevelBtn();
+}
+
+function ctxAAUpgrade() {
   if (!ctxTower || ctxTower.def.canTargetAir || ctxTower.aaUpgraded) return;
   if (gold < ctxTower.def.aaUpgradeCost) { showMsg('Not enough gold', 1000); return; }
   gold -= ctxTower.def.aaUpgradeCost;
+  ctxTower.invested += ctxTower.def.aaUpgradeCost;
   ctxTower.aaUpgraded = true;
   updateUI();
   showMsg('🎯 Anti-air upgrade installed!', 1200);
@@ -167,7 +223,7 @@ function ctxUpgrade() {
 
 function ctxSell() {
   if (!ctxTower) return;
-  gold += Math.floor(ctxTower.def.cost * 0.5);
+  gold += Math.floor(ctxTower.invested * 0.5);
   towers = towers.filter(t => t !== ctxTower);
   updateUI();
   hideTowerContext();
@@ -241,7 +297,7 @@ canvas.addEventListener('click', e => {
     const def = TOWER_DEFS[mode];
     if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, aaUpgraded: false, level: 1, invested: def.cost });
     updateUI();
     clearMode();
     return;
@@ -320,7 +376,8 @@ function updateUI() {
   document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
-  updateCtxUpgradeBtn();
+  updateCtxLevelBtn();
+  updateCtxAABtn();
 }
 
 function updateTowerButtons() {
@@ -351,6 +408,7 @@ function tick() {
   }
 
   for (const t of towers) {
+    const stats = towerStats(t);
     if (t.def.type !== 'inferno') {
       // Normal tower logic
       t.cooldown = Math.max(0, t.cooldown-1);
@@ -361,13 +419,13 @@ function tick() {
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
         if (e.flying && !canHitAir) continue;
-        if (dist(c.x,c.y,e.x,e.y) <= t.def.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+        if (dist(c.x,c.y,e.x,e.y) <= stats.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
-      if (best) { t.cooldown = t.def.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: t.def.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
+      if (best) { t.cooldown = stats.rate; bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg: stats.damage, color: t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type }); }
     } else {
       // Inferno tower: beam logic
       const c = cellCenter(t.gx, t.gy);
-      const range = t.def.range * CELL;
+      const range = stats.range * CELL;
       // find closest enemy in range, prioritize furthest along path
       const canHitAir = t.def.canTargetAir || t.aaUpgraded;
       let best = null, bestIdx = -1;
@@ -379,9 +437,9 @@ function tick() {
       if (best) {
         // Check if same target — heat up, else reset
         if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
-        t.heat = Math.min(t.heat + 1, 180);
-        // damage scales with heat: starts at 0.5/tick, ramps to 4/tick over 3 seconds
-        const dmgPerTick = 0.3 + (t.heat / 180) * 4;
+        t.heat = Math.min(t.heat + stats.heatRate, 180);
+        // damage scales with heat: starts at 0.3/tick, ramps to 4/tick over 3 seconds, scaled by level
+        const dmgPerTick = (0.3 + (t.heat / 180) * 4) * stats.dmgMult;
         best.hp -= dmgPerTick;
         best.onFire = t.heat;
         // fire particles along beam
@@ -517,6 +575,17 @@ function draw() {
     if (t.aaUpgraded) {
       ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    if (t.level > 1) {
+      const pips = t.level - 1;
+      const pipW = 3, gap = 1.5, totalW = pips*pipW + (pips-1)*gap;
+      let px = t.gx*CELL + CELL/2 - totalW/2;
+      const py = t.gy*CELL + CELL - 4;
+      ctx.fillStyle = '#f0c040'; ctx.strokeStyle = '#5a4200'; ctx.lineWidth = 0.75;
+      for (let i = 0; i < pips; i++) {
+        ctx.beginPath(); ctx.rect(px, py, pipW, 2); ctx.fill(); ctx.stroke();
+        px += pipW + gap;
+      }
     }
   }
 

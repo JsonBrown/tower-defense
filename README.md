@@ -30,7 +30,13 @@ Enemies follow a fixed path from the left edge to the castle on the right. Place
 
 Click a tower button to select it, then click an empty grid cell to place it. Click the same button again or press Escape to cancel.
 
-**Sell (💸)** — select Sell mode and click a tower to remove it for 50% of its cost.
+### Upgrading Towers
+
+Click a placed tower to open its context menu:
+
+- **⬆️ Upgrade** — spend gold to level a tower up (Lv1 → Lv5). Each level boosts damage, fire rate, and eventually range; gold pips under the tower show its current level. Inferno towers instead get a stronger, faster-heating beam.
+- **🎯 AA Upgrade** — one-time upgrade letting Arrow/Laser towers target flying enemies (Inferno tracks air by default).
+- **💸 Sell** — remove the tower for 50% of everything invested in it (base cost + upgrades).
 
 ### Controls
 
