@@ -8,8 +8,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #ui { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
 .stat { font-size: 12px; color: #aaa; }
 .stat span { color: #fff; font-weight: 500; }
-#ui button, #tower-menu button, #action-menu button, #tower-context-menu button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
-#ui button:hover, #tower-menu button:hover, #action-menu button:hover, #tower-context-menu button:hover { background: #ffffff; border-color: #000; }
+#ui button, #tower-menu button, #ability-menu button, #action-menu button, #tower-context-menu button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
+#ui button:hover, #tower-menu button:hover, #ability-menu button:hover, #action-menu button:hover, #tower-context-menu button:hover { background: #ffffff; border-color: #000; }
 .tower-btn { border: 2px solid #aaa !important; }
 .tower-btn.selected { border-color: #f0c040 !important; box-shadow: 0 0 0 2px #f0c040; }
 #start-btn { background: #0f3460; border-color: #e94560 !important; }
@@ -22,6 +22,16 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #tower-menu.open #tower-menu-content { max-width: 160px; padding: 10px; }
 #tower-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
 #tower-menu-handle:hover { background: #14407a; }
+#ability-menu { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-right: none; border-radius: 8px 0 0 8px; }
+#ability-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
+#ability-menu.open #ability-menu-content { max-width: 220px; padding: 10px; }
+#ability-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
+#ability-menu-handle:hover { background: #14407a; }
+.ability-row { display: flex; flex-direction: column; gap: 3px; }
+.ability-row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ability-row-label { font-size: 11px; color: #aaa; white-space: nowrap; }
+.ability-row-btn { flex: none; min-width: 92px; }
+.ability-row-desc { font-size: 10px; color: #7891b0; line-height: 1.3; max-width: 150px; white-space: normal; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
 #tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; flex-direction: column; gap: 8px; padding: 10px 12px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; min-width: 260px; }
 #ctx-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -33,7 +43,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 .ctx-path-btn { flex: none; min-width: 92px; }
 .ctx-path-desc { font-size: 10px; color: #7891b0; margin-top: 2px; line-height: 1.3; }
 .ctx-path-locked { opacity: 0.45; }
-#ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
+.ability-row-btn.ability-ready { border-color: #f0c040 !important; box-shadow: 0 0 0 2px rgba(240,192,64,0.4); }
+#ui button:disabled, #tower-menu button:disabled, #ability-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
 <body>
@@ -52,7 +63,12 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
     <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
     <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
     <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
+    <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')">🧊 Frost (110g)</button>
   </div>
+</div>
+<div id="ability-menu" style="display:none;">
+  <button id="ability-menu-handle" onclick="toggleAbilityMenu()">✨ Abilities ▶</button>
+  <div id="ability-menu-content"></div>
 </div>
 <div id="action-menu">
   <button id="auto-btn" onclick="toggleAuto()">⏩ Auto: OFF</button>
@@ -115,11 +131,13 @@ let tick_count = 0;
 
 const MAX_PATH_LEVEL = 5;
 const CROSSPATH_CAP = 2; // at most one path may exceed this tier at a time
+const BOSS_VARIANTS = ['classic', 'armored', 'swarm'];
 
 const TOWER_DEFS = {
   arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false },
   laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false },
   inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true },
+  frost:   { cost: 110, range: 3.25,  damage: 35, rate: 45, color: '#40c0ff', pcolor: '#c0f0ff', speed: 8,  type: 'frost',   icon: '🧊', canTargetAir: false },
 };
 
 // Each tier entry is the tower's stat state AT that tier (not a delta). Tier index 0 = path level 1.
@@ -127,12 +145,14 @@ const PATH_KEYS = {
   arrow:   ['power', 'speed', 'utility'],
   laser:   ['power', 'speed', 'utility'],
   inferno: ['power', 'heat',  'utility'],
+  frost:   ['power', 'chill', 'utility'],
 };
 
 const PATH_META = {
   power:   { icon: '💪', name: 'Power' },
   speed:   { icon: '⚡', name: 'Speed' },
   heat:    { icon: '🥶', name: 'Heat' },
+  chill:   { icon: '❄️', name: 'Chill' },
   utility: { icon: '🎯', name: 'Utility' },
 };
 
@@ -206,6 +226,29 @@ const PATH_DEFS = {
       { cost: 420, rangeAdd: 1.25, splash: 0.3 },
     ],
   },
+  frost: {
+    power: [
+      { cost: 50,  dmgMult: 1.20 },
+      { cost: 85,  dmgMult: 1.40 },
+      { cost: 145, dmgMult: 1.65 },
+      { cost: 220, dmgMult: 1.95 },
+      { cost: 320, dmgMult: 2.3, shatter: 0.75 },
+    ],
+    chill: [
+      { cost: 50,  slowPct: 0.18 },
+      { cost: 85,  slowPct: 0.28 },
+      { cost: 145, slowPct: 0.38 },
+      { cost: 220, slowPct: 0.48 },
+      { cost: 320, slowPct: 0.58, freeze: 0.12 },
+    ],
+    utility: [
+      { cost: 45,  rangeAdd: 0.5 },
+      { cost: 75,  rangeAdd: 0.75, unlockAA: true },
+      { cost: 130, rangeAdd: 1.0 },
+      { cost: 195, rangeAdd: 1.25 },
+      { cost: 290, rangeAdd: 1.5, novaSlow: 0.2 },
+    ],
+  },
 };
 
 function newTowerPaths(type) {
@@ -235,6 +278,42 @@ function canTargetAir(t) {
   return t.def.canTargetAir || !!towerStats(t).unlockAA;
 }
 
+// Each tower's active ability unlocks once its Power path hits the capstone tier —
+// a manually-triggered burst on top of that tier's passive bonus, on its own cooldown.
+const ACTIVE_ABILITIES = {
+  arrow: { icon: '🎯', name: 'Volley',      cooldown: 800, desc: 'Instantly strikes every enemy in range for a full hit each.' },
+  frost: { icon: '🧊', name: 'Deep Freeze', cooldown: 850, desc: 'Fully freezes every enemy in range for a few seconds.' },
+};
+
+function abilityUnlocked(t) {
+  return t.paths.power >= MAX_PATH_LEVEL;
+}
+
+function enemiesInRange(t, stats) {
+  const c = cellCenter(t.gx, t.gy);
+  const canHitAir = canTargetAir(t);
+  const range = stats.range * CELL;
+  return enemies.filter(e => !e.dead && e.hp > 0 && (!e.flying || canHitAir) && dist(c.x, c.y, e.x, e.y) <= range);
+}
+
+function activateAbility(t) {
+  const stats = towerStats(t);
+  const targets = enemiesInRange(t, stats);
+  if (t.def.type === 'arrow') {
+    for (const e of targets) {
+      let dmg = stats.damage;
+      if (stats.crit && Math.random() < stats.crit) dmg *= stats.critMult;
+      applyDamage(e, dmg);
+      for (let i = 0; i < 3; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*3, vy: (Math.random()-.5)*3, life: 14, color: t.def.pcolor });
+    }
+  } else if (t.def.type === 'frost') {
+    for (const e of targets) {
+      e.slowMult = 0; e.freezeLock = 150;
+      for (let i = 0; i < 6; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*2, vy: (Math.random()-.5)*2, life: 18, color: '#a0e8ff' });
+    }
+  }
+}
+
 // Human-readable summary of what a single tier entry grants, generated straight from
 // its fields so the description can never drift out of sync with the actual mechanics.
 function describeTier(def) {
@@ -251,6 +330,10 @@ function describeTier(def) {
   if (def.overcharge) parts.push(Math.round(def.overcharge * 100) + '% chance to overcharge for ' + def.overchargeMult + '×');
   if (def.multishot) parts.push('fires ' + def.multishot + ' shots per attack');
   if (def.cryo) parts.push('chills the target, slowing it up to 40%');
+  if (def.slowPct !== undefined) parts.push('slows target ' + Math.round(def.slowPct*100) + '%');
+  if (def.freeze) parts.push(Math.round(def.freeze*100) + '% chance to fully freeze the target briefly');
+  if (def.shatter) parts.push(Math.round(def.shatter*100) + '% bonus dmg vs slowed enemies');
+  if (def.novaSlow) parts.push('hits pulse ' + Math.round(def.novaSlow*100) + '% slow to nearby enemies');
   return parts.join(', ');
 }
 
@@ -273,7 +356,7 @@ function canLevelPath(t, key) {
 function selectMode(m) {
   if (gold < TOWER_DEFS[m].cost) return;
   mode = (mode === m) ? null : m;
-  ['arrow','laser','inferno'].forEach(t => {
+  ['arrow','laser','inferno','frost'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.toggle('selected', t === mode);
   });
@@ -291,7 +374,7 @@ function toggleTowerMenu() { setTowerMenuOpen(!towerMenuOpen); }
 
 function clearMode() {
   mode = null;
-  ['arrow','laser','inferno'].forEach(t => {
+  ['arrow','laser','inferno','frost'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.remove('selected');
   });
@@ -315,6 +398,95 @@ function showTowerContext(tower) {
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
   updateCtxPaths();
   document.getElementById('tower-context-menu').style.display = 'flex';
+}
+
+let abilityMenuOpen = false;
+function setAbilityMenuOpen(open) {
+  abilityMenuOpen = open;
+  document.getElementById('ability-menu').classList.toggle('open', open);
+  document.getElementById('ability-menu-handle').textContent = '✨ Abilities ' + (open ? '◀' : '▶');
+}
+function toggleAbilityMenu() { setAbilityMenuOpen(!abilityMenuOpen); }
+
+// The Abilities panel stays hidden (like the Towers panel is always shown) until the
+// player has actually unlocked at least one tower's ability by maxing its Power path.
+//
+// refreshAbilityMenu() runs both after discrete game events (updateUI, many times a
+// second during combat via kills/gold changes) and every tick (for the live cooldown
+// countdown) — so it only tears down and rebuilds the row elements when the actual set
+// of unlocked-ability towers changes, and otherwise just patches the existing buttons'
+// text/state in place. Rebuilding unconditionally on every call would risk a real click
+// landing on an element mid-swap and silently missing.
+let abilityMenuTowers = [];
+function sameTowerList(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function refreshAbilityMenu() {
+  const unlocked = towers.filter(t => ACTIVE_ABILITIES[t.def.type] && abilityUnlocked(t));
+  if (!sameTowerList(unlocked, abilityMenuTowers)) {
+    abilityMenuTowers = unlocked;
+    rebuildAbilityMenu(unlocked);
+    return;
+  }
+  document.querySelectorAll('#ability-menu-content .ability-row-btn').forEach((btn, i) => {
+    const t = unlocked[i];
+    if (t.activeCooldown > 0) {
+      btn.disabled = true;
+      btn.classList.remove('ability-ready');
+      btn.textContent = '⏳ ' + Math.ceil(t.activeCooldown/60) + 's';
+    } else if (btn.disabled) {
+      btn.disabled = false;
+      btn.classList.add('ability-ready');
+      btn.textContent = 'Activate!';
+    }
+  });
+}
+
+function rebuildAbilityMenu(unlocked) {
+  document.getElementById('ability-menu').style.display = unlocked.length ? 'flex' : 'none';
+  const content = document.getElementById('ability-menu-content');
+  content.innerHTML = '';
+  unlocked.forEach(t => {
+    const ability = ACTIVE_ABILITIES[t.def.type];
+    const row = document.createElement('div');
+    row.className = 'ability-row';
+    const top = document.createElement('div');
+    top.className = 'ability-row-top';
+    const label = document.createElement('span');
+    label.className = 'ability-row-label';
+    label.innerHTML = ability.icon + ' ' + ability.name;
+    const btn = document.createElement('button');
+    btn.className = 'ability-row-btn';
+    if (t.activeCooldown > 0) {
+      btn.disabled = true;
+      btn.textContent = '⏳ ' + Math.ceil(t.activeCooldown/60) + 's';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Activate!';
+      btn.classList.add('ability-ready');
+    }
+    btn.addEventListener('click', () => activateTowerAbility(t));
+    wireButtonHoverColor(btn);
+    top.appendChild(label);
+    top.appendChild(btn);
+    const desc = document.createElement('div');
+    desc.className = 'ability-row-desc';
+    desc.textContent = ability.desc;
+    row.appendChild(top);
+    row.appendChild(desc);
+    content.appendChild(row);
+  });
+}
+
+function activateTowerAbility(t) {
+  if (!ACTIVE_ABILITIES[t.def.type] || !abilityUnlocked(t) || t.activeCooldown > 0) return;
+  activateAbility(t);
+  t.activeCooldown = ACTIVE_ABILITIES[t.def.type].cooldown;
+  updateUI();
+  showMsg(ACTIVE_ABILITIES[t.def.type].icon + ' ' + ACTIVE_ABILITIES[t.def.type].name + '!', 1000);
 }
 
 function updateCtxPaths() {
@@ -444,7 +616,7 @@ canvas.addEventListener('click', e => {
     const def = TOWER_DEFS[mode];
     if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost, activeCooldown: 0 });
     updateUI();
     clearMode();
     return;
@@ -458,48 +630,68 @@ canvas.addEventListener('click', e => {
   }
 });
 
-function enemyStats(type) {
-  if (type === 'boss') return { hp: 500, speed: 0.55 + wave * 0.03, reward: 150, size: 13 };
+function bossVariantForWave(w) {
+  return BOSS_VARIANTS[Math.floor((w - 10) / 5) % BOSS_VARIANTS.length];
+}
+
+function enemyStats(type, variant) {
+  if (type === 'boss') {
+    const base = { hp: 500, speed: 0.55 + wave * 0.03, reward: 150, size: 13 };
+    if (variant === 'armored') return { hp: Math.round(base.hp * 1.35), speed: +(base.speed * 0.65).toFixed(3), reward: base.reward + 40, size: 14, armor: 0.35 };
+    if (variant === 'swarm') return { hp: Math.round(base.hp * 0.85), speed: +(base.speed * 1.1).toFixed(3), reward: base.reward + 40, size: 12, spawnsMinions: true };
+    return base;
+  }
   if (type === 'trojan') return { hp: wave >= 5 ? 200 : 150, speed: 0.85 + wave * 0.05, reward: 25, size: 10 };
   if (type === 'air') return { hp: 125, speed: 1.7 + wave * 0.07, reward: 15, size: 6 };
+  if (type === 'shield') return { hp: 90 + wave * 4, speed: 0.9 + wave * 0.05, reward: 20, size: 9, shield: 50 + wave * 5 };
+  if (type === 'medic') return { hp: 70 + wave * 3, speed: 0.8 + wave * 0.04, reward: 22, size: 8 };
+  if (type === 'sprinter') return { hp: 55, speed: 2.1 + wave * 0.08, reward: 12, size: 6 };
+  if (type === 'ooze') return { hp: 130 + wave * 5, speed: 0.9 + wave * 0.04, reward: 18, size: 9 };
+  if (type === 'ooze_mini') return { hp: 45, speed: 1.1 + wave * 0.05, reward: 6, size: 5 };
   return { hp: 100, speed: 1.1 + wave * 0.08, reward: 5, size: 7 };
 }
 
-function spawnEnemy(type) {
-  const s = enemyStats(type);
-  enemies.push({
+// The full state a spawned enemy needs, shared by fresh spawns and hatched sub-enemies.
+function makeEnemy(type, variant, pathIdx, x, y) {
+  const s = enemyStats(type, variant);
+  return {
+    kind: type === 'boss' ? 'boss_' + variant : type, bossVariant: variant,
     flying: type === 'air', trojan: type === 'trojan', boss: type === 'boss',
-    pathIdx: 0, x: path[0].x*CELL+CELL/2, y: path[0].y*CELL+CELL/2,
-    hp: s.hp, maxHp: s.hp, speed: s.speed, reward: s.reward, size: s.size, t: 0
-  });
+    pathIdx, x, y, hp: s.hp, maxHp: s.hp, speed: s.speed, reward: s.reward, size: s.size, t: 0,
+    shield: s.shield || 0, maxShield: s.shield || 0, armor: s.armor || 0,
+    spawnsMinions: !!s.spawnsMinions, minionTimer: s.spawnsMinions ? 150 : undefined,
+    healTimer: type === 'medic' ? 100 : undefined,
+  };
+}
+
+function spawnEnemy(type, variant) {
+  enemies.push(makeEnemy(type, variant, 0, path[0].x*CELL+CELL/2, path[0].y*CELL+CELL/2));
 }
 
 const HATCH_MAP = {
-  trojan: { types: ['ground','ground','ground'], radius: 6, color: '#c8a060' },
-  boss:   { types: ['trojan','trojan','ground','ground'], radius: 10, color: '#903050' },
+  trojan:       { types: ['ground','ground','ground'],  radius: 6,  color: '#c8a060' },
+  boss_classic: { types: ['trojan','trojan','ground','ground'], radius: 10, color: '#903050' },
+  boss_armored: { types: ['ground','ground','ground','ground'], radius: 10, color: '#606060' },
+  boss_swarm:   { types: ['air','air','air'],            radius: 10, color: '#7030a0' },
+  ooze:         { types: ['ooze_mini','ooze_mini'],      radius: 5,  color: '#40c040' },
 };
 
-// Lives lost when an enemy of this type escapes uncaught — recursively counts every
+// Lives lost when an enemy of this kind escapes uncaught — recursively counts every
 // unit hidden inside (trojans inside a boss each count their own hidden units too).
-function escapeCost(type) {
-  const h = HATCH_MAP[type];
+function escapeCost(kind) {
+  const h = HATCH_MAP[kind];
   if (!h) return 1;
   return h.types.reduce((sum, k) => sum + escapeCost(k), 0);
 }
 
 function enemyEscapeCost(e) {
-  return escapeCost(e.boss ? 'boss' : e.trojan ? 'trojan' : 'ground');
+  return escapeCost(e.kind || 'ground');
 }
 
 function hatch(e, types, radius, particleColor) {
   types.forEach((type, i) => {
-    const s = enemyStats(type);
     const ang = (Math.PI * 2 / types.length) * i;
-    enemies.push({
-      flying: false, trojan: type === 'trojan', boss: false, pathIdx: e.pathIdx,
-      x: e.x + Math.cos(ang) * radius, y: e.y + Math.sin(ang) * radius,
-      hp: s.hp, maxHp: s.hp, speed: s.speed, reward: s.reward, size: s.size, t: 0
-    });
+    enemies.push(makeEnemy(type, undefined, e.pathIdx, e.x + Math.cos(ang) * radius, e.y + Math.sin(ang) * radius));
   });
   for (let i = 0; i < 14; i++) {
     particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*4, vy: (Math.random()-.5)*4, life: 18+Math.random()*8, color: particleColor });
@@ -511,22 +703,40 @@ function killEnemy(e) {
   gold += e.reward;
   score++;
   updateUI();
-  const h = e.trojan ? HATCH_MAP.trojan : e.boss ? HATCH_MAP.boss : null;
+  const h = HATCH_MAP[e.kind];
   if (h) hatch(e, h.types, h.radius, h.color);
+}
+
+function applyDamage(e, dmg) {
+  if (e.armor) dmg *= (1 - e.armor);
+  if (e.shield > 0) {
+    const absorb = Math.min(e.shield, dmg);
+    e.shield -= absorb;
+    dmg -= absorb;
+  }
+  if (dmg <= 0) return;
+  e.hp -= dmg;
+  if (e.hp <= 0) killEnemy(e);
 }
 
 function startWave() {
   if (waveActive || gameOver) return;
   wave++; waveActive = true;
   const total = 5 + wave * 3;
+  const isBossWave = wave >= 10 && wave % 5 === 0;
   const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
-  const bossIdx = wave === 10 ? total - 1 : -1;
+  const bossIdx = isBossWave ? total - 1 : -1;
+  const bossVariant = isBossWave ? bossVariantForWave(wave) : null;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
-    if (i === bossIdx) { spawnQueue.push('boss'); continue; }
-    if (i === trojanIdx) { spawnQueue.push('trojan'); continue; }
-    const isAir = wave >= 3 && (i % 4 === 3);
-    spawnQueue.push(isAir ? 'air' : 'ground');
+    if (i === bossIdx) { spawnQueue.push({ type: 'boss', variant: bossVariant }); continue; }
+    if (i === trojanIdx) { spawnQueue.push({ type: 'trojan' }); continue; }
+    if (wave >= 3 && i % 4 === 3) { spawnQueue.push({ type: 'air' }); continue; }
+    if (wave >= 4 && i % 5 === 1) { spawnQueue.push({ type: 'shield' }); continue; }
+    if (wave >= 6 && i % 7 === 2) { spawnQueue.push({ type: 'medic' }); continue; }
+    if (wave >= 5 && i % 6 === 4) { spawnQueue.push({ type: 'ooze' }); continue; }
+    if (wave >= 3 && i % 5 === 0) { spawnQueue.push({ type: 'sprinter' }); continue; }
+    spawnQueue.push({ type: 'ground' });
   }
   spawnTimer = 0;
   document.getElementById('start-btn').disabled = true;
@@ -541,6 +751,7 @@ function updateUI() {
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
   updateCtxPaths();
+  refreshAbilityMenu();
 }
 
 function updateTowerButtons() {
@@ -557,7 +768,7 @@ function tick() {
   if (gameOver) return;
   tick_count++;
   if (!waveActive && autoWave) { autoDelay--; if (autoDelay <= 0) startWave(); }
-  if (waveActive && spawnQueue.length > 0) { spawnTimer--; if (spawnTimer <= 0) { spawnEnemy(spawnQueue.shift()); spawnTimer = 55; } }
+  if (waveActive && spawnQueue.length > 0) { spawnTimer--; if (spawnTimer <= 0) { const next = spawnQueue.shift(); spawnEnemy(next.type, next.variant); spawnTimer = 55; } }
 
   for (const e of enemies) {
     if (e.dead) continue;
@@ -569,8 +780,31 @@ function tick() {
     const d = dist(e.x,e.y,tx,ty);
     if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives -= enemyEscapeCost(e); updateUI(); } }
     else { e.x += (tx-e.x)/d*spd; e.y += (ty-e.y)/d*spd; }
-    if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
+    if (e.freezeLock > 0) { e.freezeLock--; e.slowMult = 0; }
+    else if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
     e.t++;
+  }
+
+  for (const e of enemies) {
+    if (e.dead) continue;
+    if (e.kind === 'medic') {
+      e.healTimer--;
+      if (e.healTimer <= 0) {
+        e.healTimer = 100;
+        for (const o of enemies) {
+          if (o === e || o.dead || o.boss) continue;
+          if (dist(e.x,e.y,o.x,o.y) <= 70) o.hp = Math.min(o.maxHp, o.hp + o.maxHp*0.18);
+        }
+        for (let i = 0; i < 10; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*2, vy: -Math.random()*2-0.5, life: 20, color: '#7fffab' });
+      }
+    }
+    if (e.spawnsMinions) {
+      e.minionTimer--;
+      if (e.minionTimer <= 0) {
+        e.minionTimer = 140;
+        enemies.push(makeEnemy('air', undefined, e.pathIdx, e.x, e.y));
+      }
+    }
   }
 
   function findPierceTarget(x, y, exclude) {
@@ -583,12 +817,8 @@ function tick() {
     return best;
   }
 
-  function applyDamage(e, dmg) {
-    e.hp -= dmg;
-    if (e.hp <= 0) killEnemy(e);
-  }
-
   for (const t of towers) {
+    t.activeCooldown = Math.max(0, (t.activeCooldown||0) - 1);
     const stats = towerStats(t);
     if (t.def.type !== 'inferno') {
       // Normal tower logic
@@ -611,7 +841,8 @@ function tick() {
           if (stats.crit && Math.random() < stats.crit) { dmg *= stats.critMult; crit = true; }
           let overcharge = false;
           if (stats.overcharge && Math.random() < stats.overcharge) { dmg *= stats.overchargeMult; overcharge = true; }
-          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain });
+          if (stats.shatter && best.slowMult !== undefined && best.slowMult < 1) dmg *= (1 + stats.shatter);
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow });
         }
       }
     } else {
@@ -675,6 +906,18 @@ function tick() {
       b.done = true;
       applyDamage(b.target, b.dmg);
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
+      // Frost tower: slows the target on hit, with a small chance to fully freeze it
+      if (b.slowPct && !b.target.dead) {
+        b.target.slowMult = Math.min(b.target.slowMult !== undefined ? b.target.slowMult : 1, 1 - b.slowPct);
+        if (b.freeze && Math.random() < b.freeze) { b.target.slowMult = 0; b.target.freezeLock = 24; }
+        // Frost Utility capstone: nova pulses a lighter slow to nearby enemies too
+        if (b.novaSlow) {
+          for (const e of enemies) {
+            if (e === b.target || e.dead || e.hp <= 0) continue;
+            if (dist(tx, ty, e.x, e.y) <= 40) e.slowMult = Math.min(e.slowMult !== undefined ? e.slowMult : 1, 1 - b.novaSlow);
+          }
+        }
+      }
       // Arrow Utility capstone: pierce hits a second nearby enemy for full damage
       if (b.pierce) {
         const second = findPierceTarget(tx, ty, b.target);
@@ -708,6 +951,8 @@ function tick() {
     gameOver = true; clearMode();
     showMsg('💀 Game Over!\nWave '+wave+' • '+score+' kills\n\nRefresh to restart', 0);
   }
+
+  refreshAbilityMenu();
 }
 
 function showMsg(text, dur) {
@@ -797,7 +1042,7 @@ function draw() {
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     }
     // Path level bars: one thin row per path (power/speed-or-heat/utility), width = level/5
-    const pathColors = { power: '#e94560', speed: '#50c8f0', heat: '#8ec8ff', utility: '#7ec850' };
+    const pathColors = { power: '#e94560', speed: '#50c8f0', heat: '#8ec8ff', chill: '#40c0ff', utility: '#7ec850' };
     const keys = PATH_KEYS[t.def.type];
     const barW = CELL - 6, barH = 1.5, barGap = 0.5;
     let barY = t.gy*CELL + CELL - 2 - (barH+barGap)*keys.length;
@@ -823,7 +1068,7 @@ function draw() {
     ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)';
     ctx.fill();
     ctx.strokeStyle = canPlace
-      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : 'rgba(255,255,255,0.5)')
+      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : mode==='frost' ? 'rgba(80,200,255,0.6)' : 'rgba(255,255,255,0.5)')
       : 'rgba(255,80,80,0.5)';
     ctx.lineWidth = 1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
   }
@@ -851,9 +1096,12 @@ function draw() {
       ctx.restore();
     } else if (e.boss) {
       const rr = r*pulse;
-      ctx.fillStyle = 'rgba(140,20,60,0.25)';
+      const variantStyle = { classic: { color: '#5a1030', glow: 'rgba(140,20,60,0.25)', ring: 'rgba(255,120,160,0.8)', emoji: '💀' },
+                              armored: { color: '#4a4a4a', glow: 'rgba(90,90,90,0.25)',  ring: 'rgba(200,200,210,0.8)', emoji: '🗿' },
+                              swarm:   { color: '#5a2090', glow: 'rgba(110,40,160,0.25)', ring: 'rgba(210,160,255,0.8)', emoji: '👑' } }[e.bossVariant] || { color: '#5a1030', glow: 'rgba(140,20,60,0.25)', ring: 'rgba(255,120,160,0.8)', emoji: '💀' };
+      ctx.fillStyle = variantStyle.glow;
       ctx.beginPath(); ctx.arc(e.x, e.y, rr+5, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#5a1030';
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : variantStyle.color;
       ctx.beginPath();
       for (let i = 0; i < 8; i++) {
         const a = Math.PI/4*i - Math.PI/8;
@@ -861,11 +1109,11 @@ function draw() {
         i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
       }
       ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : 'rgba(255,120,160,0.8)';
+      ctx.strokeStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(120*(1-fireAmt))},0,0.9)` : variantStyle.ring;
       ctx.lineWidth = 2+fireAmt; ctx.stroke();
       ctx.font = Math.round(rr*1.3)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('💀', e.x, e.y+rr*0.45);
+      ctx.fillText(variantStyle.emoji, e.x, e.y+rr*0.45);
     } else if (e.trojan) {
       const rr = r*pulse;
       ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},40,0.95)` : '#8a5a2a';
@@ -875,6 +1123,34 @@ function draw() {
       ctx.font = Math.round(rr*1.4)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('🐴', e.x, e.y+rr*0.5);
+    } else if (e.kind === 'shield') {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#3a5a7a';
+      ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+      if (e.shield > 0) {
+        ctx.strokeStyle = `rgba(120,220,255,${0.4+0.5*(e.shield/e.maxShield)})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(e.x, e.y, rr+4, -Math.PI/2, -Math.PI/2 + Math.PI*2*(e.shield/e.maxShield)); ctx.stroke();
+      }
+    } else if (e.kind === 'medic') {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#e05070';
+      ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(e.x-rr*0.5, e.y-1.5, rr, 3);
+      ctx.fillRect(e.x-1.5, e.y-rr*0.5, 3, rr);
+    } else if (e.kind === 'ooze' || e.kind === 'ooze_mini') {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#40c040';
+      ctx.beginPath(); ctx.arc(e.x, e.y, rr, Math.PI*0.1, Math.PI*1.9); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1; ctx.stroke();
+    } else if (e.kind === 'sprinter') {
+      const rr = r*pulse;
+      ctx.fillStyle = fireAmt > 0.3 ? `rgba(255,${Math.round(140*(1-fireAmt))},60,0.95)` : '#f0e050';
+      ctx.beginPath(); ctx.arc(e.x, e.y, rr, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; ctx.stroke();
     } else {
       const baseR = Math.round(220*(1-hpPct)+40*hpPct);
       const baseG = Math.round(60*hpPct+20);
@@ -888,6 +1164,18 @@ function draw() {
       ctx.lineWidth=1+fireAmt; ctx.stroke();
     }
     e.onFire = 0;
+
+    if (e.slowMult !== undefined && e.slowMult < 0.97) {
+      ctx.strokeStyle = `rgba(140,220,255,${0.3+0.5*(1-e.slowMult)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(e.x, e.y, r*pulse+3, 0, Math.PI*2); ctx.stroke();
+    }
+
+    if (e.maxShield > 0) {
+      const bw2 = r*2.2;
+      ctx.fillStyle = '#1a2a33'; ctx.fillRect(e.x-bw2/2, barY-4, bw2, 2);
+      ctx.fillStyle = '#60d0ff'; ctx.fillRect(e.x-bw2/2, barY-4, bw2*(e.shield/e.maxShield), 2);
+    }
 
     const bw=r*2.2;
     ctx.fillStyle='#333'; ctx.fillRect(e.x-bw/2, barY, bw, 3);
@@ -918,14 +1206,15 @@ function loop() {
 generatePath();
 updateUI();
 
-document.querySelectorAll('#ui button, #tower-menu button, #action-menu button, #tower-context-menu button').forEach(btn => {
+function wireButtonHoverColor(btn) {
   btn.style.setProperty('color', '#ffffff', 'important');
   btn.addEventListener('mouseenter', () => btn.style.setProperty('color', '#000000', 'important'));
   btn.addEventListener('mouseleave', () => btn.style.setProperty('color', '#ffffff', 'important'));
-});
+}
+document.querySelectorAll('#ui button, #tower-menu button, #ability-menu button, #action-menu button, #tower-context-menu button').forEach(wireButtonHoverColor);
 
 loop();
-showMsg('New: ✈️ Air units arrive from wave 3!\n🔥 Inferno tracks air by default — level a 🏹/⚡ tower\'s 🎯 Utility path to tier 2 to hit them.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10: a boss hides 2 trojans + 2 units inside!', 5000);
+showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max Arrow\'s or Frost\'s Power path to unlock its active ability — a new ✨ Abilities tab will appear on the right to fire it!', 7000);
 </script>
 </body>
 </html>
