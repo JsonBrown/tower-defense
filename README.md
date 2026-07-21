@@ -47,14 +47,16 @@ Click a placed tower to open its context menu. Every tower has three independent
 
 ### Active Abilities
 
-Maxing out **Arrow**'s or **Frost**'s **💪 Power** path (tier 5) unlocks a manually-triggered active ability on top of its passive capstone bonus. Click the tower and hit **Activate!** in its context menu to fire it — each has its own cooldown shown as a countdown on the button while it recharges:
+Maxing out **Arrow**'s or **Frost**'s **💪 Power** path (tier 5) unlocks a manually-triggered active ability on top of its passive capstone bonus:
 
 | Tower | Ability | Effect |
 |-------|---------|--------|
 | 🏹 Arrow | 🎯 Volley | Instantly strikes every enemy currently in range for a full hit each |
 | 🧊 Frost | 🧊 Deep Freeze | Fully freezes every enemy in range for a few seconds |
 
-Use them to swing a fight — clear a cluster before it reaches a chokepoint, burst down a shielded enemy or boss, or buy time against a big wave.
+An **✨ Abilities** tab appears on the right edge of the screen — like the 🏗️ Towers tab on the left — the moment you've unlocked your first one, listing every tower that currently has an ability ready along with an **Activate!** button and a live cooldown countdown. It stays hidden entirely until then.
+
+Use abilities to swing a fight — clear a cluster before it reaches a chokepoint, burst down a shielded enemy or boss, or buy time against a big wave.
 
 ### Enemies
 
