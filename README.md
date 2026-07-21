@@ -14,11 +14,24 @@ Then open `http://localhost:8080`.
 
 ## How to Play
 
-Enemies follow a fixed path from the left edge to the castle on the right. Place towers on any empty grid cell that isn't on the path to stop them. You start with 20 lives and 150 gold.
+Opening the game shows a title screen — click **▶ Play** to get to the start screen, where you pick a **difficulty** and a **map** (see below) before each run. Once a run begins, enemies follow that map's fixed path from the left edge to the castle on the right. Place towers on any empty grid cell that isn't on the path to stop them.
 
 **Losing a life** — an enemy reaches the castle end of the path.
 
-**Earning gold** — enemies drop gold when killed; a bonus is paid at the end of each wave.
+**Earning gold** — enemies drop gold when killed; a bonus is paid at the end of each wave (shown in a banner as the wave clears).
+
+The game has light sound effects (tower placement, upgrades, kills, wave start/clear, abilities, losing a life) synthesized on the fly — no audio files, so nothing to load.
+
+### Difficulty & Maps
+
+The start screen (shown before every run) lets you choose:
+
+- **Difficulty** — **Easy** (25 lives, 200g, weaker/slower enemies, +15% gold), **Normal** (20 lives, 150g, baseline), or **Hard** (15 lives, 120g, tougher/faster enemies, −15% gold)
+- **Map** — **Switchback** (the original 3-turn path), **Deep Zigzag** (4 tighter bands, more chokepoints), or **Long Sweep** (just 2 turns, wide open lanes)
+
+Your best result (furthest wave and kill count) is tracked separately per difficulty and shown on both the start screen and the Game Over screen, since a Hard run and an Easy run aren't really comparable.
+
+Restarting after Game Over takes you back to this start screen (not all the way to the title screen), so picking a new difficulty or map for your next run is one click away.
 
 ### Towers
 
@@ -77,6 +90,10 @@ Use abilities to swing a fight — clear a cluster before it reaches a chokepoin
 - **Auto** — automatically starts each wave after a short delay
 - **1× / 2×** — toggles double game speed
 
+### Game Over
+
+When your lives hit 0, a Game Over panel shows your final wave and kill count, your best-ever result for that difficulty (saved locally in your browser), and a **🔄 Restart** button. Restarting takes you back to the start screen to pick a (possibly different) difficulty and map for your next run.
+
 ### Tips
 
 - The Inferno beam starts weak — let it lock on and build heat before switching targets.
@@ -84,6 +101,7 @@ Use abilities to swing a fight — clear a cluster before it reaches a chokepoin
 - Hover over a cell while a tower is selected to preview its range.
 - Sell and reposition towers between waves to adapt to harder enemies.
 - Kill Medics first — every heal pulse they land undoes several hits' worth of your damage.
+- Watch for a gold "!" popup and a distinct sound — that's a crit or overcharge hit landing.
 
 ## Project Structure
 
