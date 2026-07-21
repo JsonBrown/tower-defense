@@ -45,6 +45,19 @@ Click a placed tower to open its context menu. Every tower has three independent
 
 - **💸 Sell** — remove the tower for 50% of everything invested in it (base cost + all path upgrades).
 
+### Active Abilities
+
+Maxing out a tower's **💪 Power** path (tier 5) unlocks a manually-triggered active ability on top of its passive capstone bonus. Click the tower and hit **Activate!** in its context menu to fire it — each has its own cooldown shown as a countdown on the button while it recharges:
+
+| Tower | Ability | Effect |
+|-------|---------|--------|
+| 🏹 Arrow | 🎯 Volley | Instantly strikes every enemy currently in range for a full hit each |
+| ⚡ Laser | 💥 Overload | A single massive burst (6× damage) on your current target |
+| 🔥 Inferno | ☄️ Meltdown | Instantly maxes the beam's heat and blasts everything in range |
+| 🧊 Frost | 🧊 Deep Freeze | Fully freezes every enemy in range for a few seconds |
+
+Use them to swing a fight — clear a cluster before it reaches a chokepoint, burst down a shielded enemy or boss, or buy time against a big wave.
+
 ### Enemies
 
 | Enemy | Notes |

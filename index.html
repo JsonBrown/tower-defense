@@ -33,6 +33,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 .ctx-path-btn { flex: none; min-width: 92px; }
 .ctx-path-desc { font-size: 10px; color: #7891b0; margin-top: 2px; line-height: 1.3; }
 .ctx-path-locked { opacity: 0.45; }
+#ctx-active-section { border-top: 1px solid #0f3460; padding-top: 8px; margin-top: 2px; }
+#ctx-active-btn.ability-ready { border-color: #f0c040 !important; box-shadow: 0 0 0 2px rgba(240,192,64,0.4); }
 #ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
 </head>
@@ -87,6 +89,13 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
       </div>
       <div class="ctx-path-desc"></div>
     </div>
+  </div>
+  <div id="ctx-active-section">
+    <div class="ctx-path-row">
+      <span class="ctx-path-label" id="ctx-active-label"></span>
+      <button class="ctx-path-btn" id="ctx-active-btn" onclick="ctxActivate()"></button>
+    </div>
+    <div class="ctx-path-desc" id="ctx-active-desc"></div>
   </div>
 </div>
 
@@ -263,6 +272,57 @@ function canTargetAir(t) {
   return t.def.canTargetAir || !!towerStats(t).unlockAA;
 }
 
+// Each tower's active ability unlocks once its Power path hits the capstone tier —
+// a manually-triggered burst on top of that tier's passive bonus, on its own cooldown.
+const ACTIVE_ABILITIES = {
+  arrow:   { icon: '🎯', name: 'Volley',      cooldown: 800,  desc: 'Instantly strikes every enemy in range for a full hit each.' },
+  laser:   { icon: '💥', name: 'Overload',    cooldown: 700,  desc: 'Unleashes a massive burst of damage on your current target.' },
+  inferno: { icon: '☄️', name: 'Meltdown',    cooldown: 1000, desc: 'Maxes out the beam instantly and blasts everything in range.' },
+  frost:   { icon: '🧊', name: 'Deep Freeze', cooldown: 850,  desc: 'Fully freezes every enemy in range for a few seconds.' },
+};
+
+function abilityUnlocked(t) {
+  return t.paths.power >= MAX_PATH_LEVEL;
+}
+
+function enemiesInRange(t, stats) {
+  const c = cellCenter(t.gx, t.gy);
+  const canHitAir = canTargetAir(t);
+  const range = stats.range * CELL;
+  return enemies.filter(e => !e.dead && e.hp > 0 && (!e.flying || canHitAir) && dist(c.x, c.y, e.x, e.y) <= range);
+}
+
+function activateAbility(t) {
+  const stats = towerStats(t);
+  const targets = enemiesInRange(t, stats);
+  if (t.def.type === 'arrow') {
+    for (const e of targets) {
+      let dmg = stats.damage;
+      if (stats.crit && Math.random() < stats.crit) dmg *= stats.critMult;
+      applyDamage(e, dmg);
+      for (let i = 0; i < 3; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*3, vy: (Math.random()-.5)*3, life: 14, color: t.def.pcolor });
+    }
+  } else if (t.def.type === 'laser') {
+    let best = null, bestIdx = -1;
+    for (const e of targets) if (e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+    if (best) {
+      applyDamage(best, stats.damage * 6);
+      for (let i = 0; i < 10; i++) particles.push({ x: best.x, y: best.y, vx: (Math.random()-.5)*5, vy: (Math.random()-.5)*5, life: 20, color: '#fff060' });
+    }
+  } else if (t.def.type === 'inferno') {
+    t.heat = 180;
+    for (const e of targets) {
+      applyDamage(e, 60 * stats.dmgMult);
+      for (let i = 0; i < 4; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*4, vy: (Math.random()-.5)*4, life: 16, color: '#ff9040' });
+    }
+  } else if (t.def.type === 'frost') {
+    for (const e of targets) {
+      e.slowMult = 0; e.freezeLock = 150;
+      for (let i = 0; i < 6; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*2, vy: (Math.random()-.5)*2, life: 18, color: '#a0e8ff' });
+    }
+  }
+}
+
 // Human-readable summary of what a single tier entry grants, generated straight from
 // its fields so the description can never drift out of sync with the actual mechanics.
 function describeTier(def) {
@@ -346,7 +406,42 @@ function showTowerContext(tower) {
   ctxTower = tower;
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
   updateCtxPaths();
+  updateCtxActive();
   document.getElementById('tower-context-menu').style.display = 'flex';
+}
+
+function updateCtxActive() {
+  if (!ctxTower) return;
+  const ability = ACTIVE_ABILITIES[ctxTower.def.type];
+  const label = document.getElementById('ctx-active-label');
+  const btn = document.getElementById('ctx-active-btn');
+  const desc = document.getElementById('ctx-active-desc');
+  label.innerHTML = ability.icon + ' ' + ability.name;
+  btn.classList.remove('ability-ready');
+  if (!abilityUnlocked(ctxTower)) {
+    btn.disabled = true;
+    btn.textContent = 'Locked';
+    desc.textContent = 'Reach 💪 Power Lv' + MAX_PATH_LEVEL + ' to unlock: ' + ability.desc;
+  } else if (ctxTower.activeCooldown > 0) {
+    btn.disabled = true;
+    btn.textContent = '⏳ ' + Math.ceil(ctxTower.activeCooldown/60) + 's';
+    desc.textContent = ability.desc;
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Activate!';
+    btn.classList.add('ability-ready');
+    desc.textContent = ability.desc;
+  }
+}
+
+function ctxActivate() {
+  if (!ctxTower) return;
+  if (!abilityUnlocked(ctxTower) || ctxTower.activeCooldown > 0) return;
+  activateAbility(ctxTower);
+  ctxTower.activeCooldown = ACTIVE_ABILITIES[ctxTower.def.type].cooldown;
+  updateUI();
+  updateCtxActive();
+  showMsg(ACTIVE_ABILITIES[ctxTower.def.type].icon + ' ' + ACTIVE_ABILITIES[ctxTower.def.type].name + '!', 1000);
 }
 
 function updateCtxPaths() {
@@ -476,7 +571,7 @@ canvas.addEventListener('click', e => {
     const def = TOWER_DEFS[mode];
     if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost, activeCooldown: 0 });
     updateUI();
     clearMode();
     return;
@@ -567,6 +662,18 @@ function killEnemy(e) {
   if (h) hatch(e, h.types, h.radius, h.color);
 }
 
+function applyDamage(e, dmg) {
+  if (e.armor) dmg *= (1 - e.armor);
+  if (e.shield > 0) {
+    const absorb = Math.min(e.shield, dmg);
+    e.shield -= absorb;
+    dmg -= absorb;
+  }
+  if (dmg <= 0) return;
+  e.hp -= dmg;
+  if (e.hp <= 0) killEnemy(e);
+}
+
 function startWave() {
   if (waveActive || gameOver) return;
   wave++; waveActive = true;
@@ -599,6 +706,7 @@ function updateUI() {
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
   updateCtxPaths();
+  updateCtxActive();
 }
 
 function updateTowerButtons() {
@@ -627,7 +735,8 @@ function tick() {
     const d = dist(e.x,e.y,tx,ty);
     if (d < spd+1) { e.pathIdx++; if (e.pathIdx >= path.length) { e.dead = true; lives -= enemyEscapeCost(e); updateUI(); } }
     else { e.x += (tx-e.x)/d*spd; e.y += (ty-e.y)/d*spd; }
-    if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
+    if (e.freezeLock > 0) { e.freezeLock--; e.slowMult = 0; }
+    else if (e.slowMult !== undefined) e.slowMult = Math.min(1, e.slowMult + 0.02);
     e.t++;
   }
 
@@ -663,19 +772,8 @@ function tick() {
     return best;
   }
 
-  function applyDamage(e, dmg) {
-    if (e.armor) dmg *= (1 - e.armor);
-    if (e.shield > 0) {
-      const absorb = Math.min(e.shield, dmg);
-      e.shield -= absorb;
-      dmg -= absorb;
-    }
-    if (dmg <= 0) return;
-    e.hp -= dmg;
-    if (e.hp <= 0) killEnemy(e);
-  }
-
   for (const t of towers) {
+    t.activeCooldown = Math.max(0, (t.activeCooldown||0) - 1);
     const stats = towerStats(t);
     if (t.def.type !== 'inferno') {
       // Normal tower logic
@@ -766,7 +864,7 @@ function tick() {
       // Frost tower: slows the target on hit, with a small chance to fully freeze it
       if (b.slowPct && !b.target.dead) {
         b.target.slowMult = Math.min(b.target.slowMult !== undefined ? b.target.slowMult : 1, 1 - b.slowPct);
-        if (b.freeze && Math.random() < b.freeze) b.target.slowMult = 0;
+        if (b.freeze && Math.random() < b.freeze) { b.target.slowMult = 0; b.target.freezeLock = 24; }
         // Frost Utility capstone: nova pulses a lighter slow to nearby enemies too
         if (b.novaSlow) {
           for (const e of enemies) {
@@ -808,6 +906,8 @@ function tick() {
     gameOver = true; clearMode();
     showMsg('💀 Game Over!\nWave '+wave+' • '+score+' kills\n\nRefresh to restart', 0);
   }
+
+  if (ctxTower) updateCtxActive();
 }
 
 function showMsg(text, dur) {
@@ -1068,7 +1168,7 @@ document.querySelectorAll('#ui button, #tower-menu button, #action-menu button, 
 });
 
 loop();
-showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!', 6000);
+showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max a tower\'s Power path to unlock its active ability — click the tower and hit Activate!', 7000);
 </script>
 </body>
 </html>
