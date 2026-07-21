@@ -684,6 +684,7 @@ function renderUpgradeTree() {
     title.className = 'ut-path-title';
     title.textContent = meta.icon + ' ' + meta.name + ' (' + level + '/' + MAX_PATH_LEVEL + ')';
     pathDiv.appendChild(title);
+    const ability = ACTIVE_ABILITIES[type];
     PATH_DEFS[type][key].forEach((tier, i) => {
       const row = document.createElement('div');
       row.className = 'ut-tier';
@@ -697,7 +698,11 @@ function renderUpgradeTree() {
       cost.textContent = tier.cost + 'g';
       const desc = document.createElement('span');
       desc.className = 'ut-tier-desc';
-      desc.textContent = describeTier(tier);
+      let text = describeTier(tier);
+      if (ability && key === 'power' && i === MAX_PATH_LEVEL - 1) {
+        text += (text ? ', ' : '') + 'unlocks ' + ability.icon + ' ' + ability.name + ' ability';
+      }
+      desc.textContent = text;
       row.appendChild(lvl);
       row.appendChild(cost);
       row.appendChild(desc);
