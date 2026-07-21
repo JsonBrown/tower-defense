@@ -32,7 +32,7 @@ Click a tower button to select it, then click an empty grid cell to place it. Cl
 
 ### Upgrading Towers
 
-Click a placed tower to open its context menu. Every tower has three independent upgrade paths, each with 5 tiers:
+Click a placed tower to open its context menu. Every tower has three independent upgrade paths, each with 5 tiers, and each path shows exactly what its next tier grants (e.g. "+20% dmg" or "unlocks anti-air targeting") right below its upgrade button:
 
 - **💪 Power** — raw damage. Capstone (tier 5) adds a crit chance (Arrow), an overcharge chance (Laser), or a bigger beam multiplier (Inferno).
 - **⚡ Speed** (Arrow/Laser) — faster fire rate. Capstone fires a second arrow per shot (Arrow) or pushes the laser toward near-continuous fire.
