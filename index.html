@@ -275,10 +275,8 @@ function canTargetAir(t) {
 // Each tower's active ability unlocks once its Power path hits the capstone tier —
 // a manually-triggered burst on top of that tier's passive bonus, on its own cooldown.
 const ACTIVE_ABILITIES = {
-  arrow:   { icon: '🎯', name: 'Volley',      cooldown: 800,  desc: 'Instantly strikes every enemy in range for a full hit each.' },
-  laser:   { icon: '💥', name: 'Overload',    cooldown: 700,  desc: 'Unleashes a massive burst of damage on your current target.' },
-  inferno: { icon: '☄️', name: 'Meltdown',    cooldown: 1000, desc: 'Maxes out the beam instantly and blasts everything in range.' },
-  frost:   { icon: '🧊', name: 'Deep Freeze', cooldown: 850,  desc: 'Fully freezes every enemy in range for a few seconds.' },
+  arrow: { icon: '🎯', name: 'Volley',      cooldown: 800, desc: 'Instantly strikes every enemy in range for a full hit each.' },
+  frost: { icon: '🧊', name: 'Deep Freeze', cooldown: 850, desc: 'Fully freezes every enemy in range for a few seconds.' },
 };
 
 function abilityUnlocked(t) {
@@ -301,19 +299,6 @@ function activateAbility(t) {
       if (stats.crit && Math.random() < stats.crit) dmg *= stats.critMult;
       applyDamage(e, dmg);
       for (let i = 0; i < 3; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*3, vy: (Math.random()-.5)*3, life: 14, color: t.def.pcolor });
-    }
-  } else if (t.def.type === 'laser') {
-    let best = null, bestIdx = -1;
-    for (const e of targets) if (e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
-    if (best) {
-      applyDamage(best, stats.damage * 6);
-      for (let i = 0; i < 10; i++) particles.push({ x: best.x, y: best.y, vx: (Math.random()-.5)*5, vy: (Math.random()-.5)*5, life: 20, color: '#fff060' });
-    }
-  } else if (t.def.type === 'inferno') {
-    t.heat = 180;
-    for (const e of targets) {
-      applyDamage(e, 60 * stats.dmgMult);
-      for (let i = 0; i < 4; i++) particles.push({ x: e.x, y: e.y, vx: (Math.random()-.5)*4, vy: (Math.random()-.5)*4, life: 16, color: '#ff9040' });
     }
   } else if (t.def.type === 'frost') {
     for (const e of targets) {
@@ -413,6 +398,9 @@ function showTowerContext(tower) {
 function updateCtxActive() {
   if (!ctxTower) return;
   const ability = ACTIVE_ABILITIES[ctxTower.def.type];
+  const section = document.getElementById('ctx-active-section');
+  if (!ability) { section.style.display = 'none'; return; }
+  section.style.display = '';
   const label = document.getElementById('ctx-active-label');
   const btn = document.getElementById('ctx-active-btn');
   const desc = document.getElementById('ctx-active-desc');
@@ -435,7 +423,7 @@ function updateCtxActive() {
 }
 
 function ctxActivate() {
-  if (!ctxTower) return;
+  if (!ctxTower || !ACTIVE_ABILITIES[ctxTower.def.type]) return;
   if (!abilityUnlocked(ctxTower) || ctxTower.activeCooldown > 0) return;
   activateAbility(ctxTower);
   ctxTower.activeCooldown = ACTIVE_ABILITIES[ctxTower.def.type].cooldown;
@@ -1168,7 +1156,7 @@ document.querySelectorAll('#ui button, #tower-menu button, #action-menu button, 
 });
 
 loop();
-showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max a tower\'s Power path to unlock its active ability — click the tower and hit Activate!', 7000);
+showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max Arrow\'s or Frost\'s Power path to unlock its active ability — click the tower and hit Activate!', 7000);
 </script>
 </body>
 </html>
