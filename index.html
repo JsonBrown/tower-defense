@@ -33,7 +33,9 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 .ctx-path-btn { flex: none; min-width: 92px; }
 .ctx-path-desc { font-size: 10px; color: #7891b0; margin-top: 2px; line-height: 1.3; }
 .ctx-path-locked { opacity: 0.45; }
-#ctx-active-section { border-top: 1px solid #0f3460; padding-top: 8px; margin-top: 2px; }
+#ctx-tabs { display: flex; gap: 6px; }
+.ctx-tab { flex: 1; }
+.ctx-tab.active { background: #0f3460; border-color: #f0c040 !important; }
 #ctx-active-btn.ability-ready { border-color: #f0c040 !important; box-shadow: 0 0 0 2px rgba(240,192,64,0.4); }
 #ui button:disabled, #tower-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 </style>
@@ -66,6 +68,10 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <div id="ctx-header">
     <div id="ctx-tower-icon"></div>
     <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
+  </div>
+  <div id="ctx-tabs">
+    <button class="ctx-tab" id="ctx-tab-upgrades" onclick="setCtxTab('upgrades')">⚙️ Upgrades</button>
+    <button class="ctx-tab" id="ctx-tab-abilities" onclick="setCtxTab('abilities')">✨ Abilities</button>
   </div>
   <div id="ctx-paths">
     <div class="ctx-path" data-slot="0">
@@ -387,20 +393,37 @@ function updateCursor() {
 }
 
 let ctxTower = null;
+let ctxTab = 'upgrades';
 function showTowerContext(tower) {
   ctxTower = tower;
+  ctxTab = 'upgrades';
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
   updateCtxPaths();
   updateCtxActive();
+  renderCtxTabs();
   document.getElementById('tower-context-menu').style.display = 'flex';
+}
+
+function setCtxTab(tab) {
+  ctxTab = tab;
+  renderCtxTabs();
+}
+
+function renderCtxTabs() {
+  if (!ctxTower) return;
+  const hasAbility = !!ACTIVE_ABILITIES[ctxTower.def.type];
+  if (!hasAbility) ctxTab = 'upgrades';
+  document.getElementById('ctx-tab-abilities').style.display = hasAbility ? '' : 'none';
+  document.getElementById('ctx-tab-upgrades').classList.toggle('active', ctxTab === 'upgrades');
+  document.getElementById('ctx-tab-abilities').classList.toggle('active', ctxTab === 'abilities');
+  document.getElementById('ctx-paths').style.display = ctxTab === 'upgrades' ? '' : 'none';
+  document.getElementById('ctx-active-section').style.display = ctxTab === 'abilities' ? '' : 'none';
 }
 
 function updateCtxActive() {
   if (!ctxTower) return;
   const ability = ACTIVE_ABILITIES[ctxTower.def.type];
-  const section = document.getElementById('ctx-active-section');
-  if (!ability) { section.style.display = 'none'; return; }
-  section.style.display = '';
+  if (!ability) return;
   const label = document.getElementById('ctx-active-label');
   const btn = document.getElementById('ctx-active-btn');
   const desc = document.getElementById('ctx-active-desc');
@@ -695,6 +718,7 @@ function updateUI() {
   updateTowerButtons();
   updateCtxPaths();
   updateCtxActive();
+  renderCtxTabs();
 }
 
 function updateTowerButtons() {
