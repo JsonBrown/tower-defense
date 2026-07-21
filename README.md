@@ -18,7 +18,9 @@ Enemies follow a fixed path from the left edge to the castle on the right. Place
 
 **Losing a life** — an enemy reaches the castle end of the path.
 
-**Earning gold** — enemies drop gold when killed; a bonus is paid at the end of each wave.
+**Earning gold** — enemies drop gold when killed; a bonus is paid at the end of each wave (shown in a banner as the wave clears).
+
+The game has light sound effects (tower placement, upgrades, kills, wave start/clear, abilities, losing a life) synthesized on the fly — no audio files, so nothing to load.
 
 ### Towers
 
@@ -77,6 +79,10 @@ Use abilities to swing a fight — clear a cluster before it reaches a chokepoin
 - **Auto** — automatically starts each wave after a short delay
 - **1× / 2×** — toggles double game speed
 
+### Game Over
+
+When your lives hit 0, a Game Over panel shows your final wave and kill count, your best-ever result (saved locally in your browser), and a **🔄 Restart** button that resets the game in place — no page refresh needed.
+
 ### Tips
 
 - The Inferno beam starts weak — let it lock on and build heat before switching targets.
@@ -84,6 +90,7 @@ Use abilities to swing a fight — clear a cluster before it reaches a chokepoin
 - Hover over a cell while a tower is selected to preview its range.
 - Sell and reposition towers between waves to adapt to harder enemies.
 - Kill Medics first — every heal pulse they land undoes several hits' worth of your damage.
+- Watch for a gold "!" popup and a distinct sound — that's a crit or overcharge hit landing.
 
 ## Project Structure
 
