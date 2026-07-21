@@ -20,7 +20,13 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #go-best { font-size: 12px; color: #f0c040; }
 #go-restart-btn { padding: 8px 20px; font-size: 13px; border-radius: 6px; cursor: pointer; background: #0f3460; border: 1px solid #e94560; color: #fff; font-family: sans-serif; }
 #go-restart-btn:hover { background: #e94560; }
-#start-panel { display: flex; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 950; flex-direction: column; align-items: center; gap: 14px; padding: 26px 34px; background: #16213e; border: 1px solid #0f3460; border-radius: 10px; text-align: center; font-family: sans-serif; color: #fff; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
+#title-screen { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%); font-family: sans-serif; color: #fff; text-align: center; }
+#title-name { font-size: 48px; font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 0 30px rgba(233,69,96,0.5), 0 0 10px rgba(255,255,255,0.25); }
+#title-tagline { font-size: 14px; color: #7891b0; max-width: 420px; }
+#title-tower-row { font-size: 22px; filter: drop-shadow(0 0 8px rgba(255,150,0,0.4)); }
+#title-play-btn { padding: 14px 40px; font-size: 18px; font-weight: 600; border-radius: 8px; cursor: pointer; background: #0f3460; border: 2px solid #e94560; color: #fff; font-family: sans-serif; transition: all 0.15s; }
+#title-play-btn:hover { background: #e94560; transform: scale(1.05); }
+#start-panel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 950; flex-direction: column; align-items: center; gap: 14px; padding: 26px 34px; background: #16213e; border: 1px solid #0f3460; border-radius: 10px; text-align: center; font-family: sans-serif; color: #fff; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
 #start-title { font-size: 24px; font-weight: 600; }
 .start-section { display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .start-label { font-size: 11px; color: #7891b0; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -71,6 +77,12 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 </div>
 <canvas id="c"></canvas>
 <div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
+<div id="title-screen">
+  <div id="title-name">🏰 Tower Defense</div>
+  <div id="title-tagline">Defend the castle. Upgrade relentlessly. Survive the swarm.</div>
+  <div id="title-tower-row">🏹 ⚡ 🔥 🧊</div>
+  <button id="title-play-btn" onclick="showStartPanel()">▶ Play</button>
+</div>
 <div id="gameover-panel">
   <div id="go-title">💀 Game Over</div>
   <div id="go-stats"></div>
@@ -1133,6 +1145,20 @@ function showGameOver() {
 // Restarting reopens the start screen (rather than immediately relaunching with the same
 // settings) so the player can pick a fresh difficulty/map for the next run; beginRun()
 // does the actual state reset once they click Start again.
+// Game HUD chrome (stat bar, tower/action menus) has nothing useful to do before a run
+// starts, so it stays hidden behind the title/start screens instead of sitting there inert.
+function setGameChromeVisible(visible) {
+  const d = visible ? 'flex' : 'none';
+  document.getElementById('ui').style.display = d;
+  document.getElementById('tower-menu').style.display = d;
+  document.getElementById('action-menu').style.display = d;
+}
+
+function showStartPanel() {
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('start-panel').style.display = 'flex';
+}
+
 function restartGame() {
   document.getElementById('gameover-panel').style.display = 'none';
   if (autoWave) toggleAuto();
@@ -1144,6 +1170,7 @@ function restartGame() {
   clearMode();
   hideTowerContext();
   abilityMenuTowers = [];
+  setGameChromeVisible(false);
   updateStartBest();
   updateUI();
   document.getElementById('start-panel').style.display = 'flex';
@@ -1179,6 +1206,7 @@ function beginRun() {
   hideTowerContext();
   generatePath(selectedMap);
   document.getElementById('start-panel').style.display = 'none';
+  setGameChromeVisible(true);
   gameStarted = true;
   updateUI();
   showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max Arrow\'s or Frost\'s Power path to unlock its active ability — a new ✨ Abilities tab will appear on the right to fire it!', 7000);
@@ -1435,6 +1463,7 @@ function loop() {
 
 selectDifficulty('normal');
 selectMap(0);
+setGameChromeVisible(false);
 updateUI();
 
 function wireButtonHoverColor(btn) {

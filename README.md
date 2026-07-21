@@ -14,7 +14,7 @@ Then open `http://localhost:8080`.
 
 ## How to Play
 
-Before each run, pick a **difficulty** and a **map** on the start screen (see below), then enemies follow that map's fixed path from the left edge to the castle on the right. Place towers on any empty grid cell that isn't on the path to stop them.
+Opening the game shows a title screen — click **▶ Play** to get to the start screen, where you pick a **difficulty** and a **map** (see below) before each run. Once a run begins, enemies follow that map's fixed path from the left edge to the castle on the right. Place towers on any empty grid cell that isn't on the path to stop them.
 
 **Losing a life** — an enemy reaches the castle end of the path.
 
@@ -30,6 +30,8 @@ The start screen (shown before every run) lets you choose:
 - **Map** — **Switchback** (the original 3-turn path), **Deep Zigzag** (4 tighter bands, more chokepoints), or **Long Sweep** (just 2 turns, wide open lanes)
 
 Your best result (furthest wave and kill count) is tracked separately per difficulty and shown on both the start screen and the Game Over screen, since a Hard run and an Easy run aren't really comparable.
+
+Restarting after Game Over takes you back to this start screen (not all the way to the title screen), so picking a new difficulty or map for your next run is one click away.
 
 ### Towers
 
