@@ -1196,7 +1196,6 @@ function tick() {
     const bonus = Math.round((45+wave*5) * DIFFICULTIES[difficulty].goldMult);
     gold += bonus; updateUI();
     document.getElementById('start-btn').disabled = false;
-    showMsg('Wave ' + wave + ' Complete! +' + bonus + 'g', 1400);
     sfxWaveComplete();
     if (autoWave) autoDelay = 0;
   }
