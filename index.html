@@ -548,11 +548,11 @@ let abilityMenuTowers = [];
 let hoveredAbilityTower = null;
 let abilityTipShown = false;
 const WAVE_TIPS = {
-  2: '🐴 Trojan horse incoming — kill it and the 3 units it hides will scatter!',
-  3: '✈️ Air units and 🏃 Sprinters incoming!',
-  4: '🛡️ Shielded enemies incoming — they resist damage until the shield breaks!',
-  5: '🟢 Oozes incoming — they split into smaller enemies on death!',
-  6: '💉 Medics incoming — they heal nearby enemies, so target them first!',
+  3: '🐴 Trojan horse incoming — kill it and the 3 units it hides will scatter!',
+  4: '✈️ Air units and 🏃 Sprinters incoming!',
+  5: '🛡️ Shielded enemies incoming — they resist damage until the shield breaks!',
+  6: '🟢 Oozes incoming — they split into smaller enemies on death!',
+  7: '💉 Medics incoming — they heal nearby enemies, so target them first!',
   10: '💀 Boss wave! A boss appears every 5 waves, cycling Classic / Armored / Swarm variants.',
 };
 let shownWaveTips = new Set();
@@ -1007,18 +1007,18 @@ function startWave() {
   wave++; waveActive = true;
   const total = 5 + wave * 3;
   const isBossWave = wave >= 10 && wave % 5 === 0;
-  const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
+  const trojanIdx = wave >= 3 ? Math.floor(total / 2) : -1;
   const bossIdx = isBossWave ? total - 1 : -1;
   const bossVariant = isBossWave ? bossVariantForWave(wave) : null;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
     if (i === bossIdx) { spawnQueue.push({ type: 'boss', variant: bossVariant }); continue; }
     if (i === trojanIdx) { spawnQueue.push({ type: 'trojan' }); continue; }
-    if (wave >= 3 && i % 4 === 3) { spawnQueue.push({ type: 'air' }); continue; }
-    if (wave >= 4 && i % 5 === 1) { spawnQueue.push({ type: 'shield' }); continue; }
-    if (wave >= 6 && i % 7 === 2) { spawnQueue.push({ type: 'medic' }); continue; }
-    if (wave >= 5 && i % 6 === 4) { spawnQueue.push({ type: 'ooze' }); continue; }
-    if (wave >= 3 && i % 5 === 0) { spawnQueue.push({ type: 'sprinter' }); continue; }
+    if (wave >= 4 && i % 4 === 3) { spawnQueue.push({ type: 'air' }); continue; }
+    if (wave >= 5 && i % 5 === 1) { spawnQueue.push({ type: 'shield' }); continue; }
+    if (wave >= 7 && i % 7 === 2) { spawnQueue.push({ type: 'medic' }); continue; }
+    if (wave >= 6 && i % 6 === 4) { spawnQueue.push({ type: 'ooze' }); continue; }
+    if (wave >= 4 && i % 5 === 0) { spawnQueue.push({ type: 'sprinter' }); continue; }
     spawnQueue.push({ type: 'ground' });
   }
   spawnTimer = 0;
