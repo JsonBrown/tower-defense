@@ -53,6 +53,9 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 .ability-row-label { font-size: 11px; color: #aaa; white-space: nowrap; }
 .ability-row-btn { flex: none; min-width: 92px; }
 .ability-row-desc { font-size: 10px; color: #7891b0; line-height: 1.3; max-width: 150px; white-space: normal; }
+.ability-group { display: flex; flex-direction: column; gap: 4px; }
+.ability-instance-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ability-instance-label { font-size: 10px; color: #7891b0; white-space: nowrap; }
 #action-menu { position: fixed; right: 0; bottom: 0; z-index: 500; display: flex; gap: 8px; padding: 8px 10px; background: #16213e; border-top: 1px solid #0f3460; border-left: 1px solid #0f3460; }
 #tower-context-menu { display: none; position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); z-index: 700; flex-direction: column; gap: 8px; padding: 10px 12px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; min-width: 260px; }
 #ctx-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -542,21 +545,35 @@ function toggleAbilityMenu() { setAbilityMenuOpen(!abilityMenuOpen); }
 // text/state in place. Rebuilding unconditionally on every call would risk a real click
 // landing on an element mid-swap and silently missing.
 let abilityMenuTowers = [];
+let hoveredAbilityTower = null;
 function sameTowerList(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;
 }
 
+// Groups unlocked towers by ability type (fixed type order, so the menu doesn't
+// reshuffle as towers are placed/sold) so same-ability towers sit together under
+// one shared header instead of repeating identical rows.
+function groupedAbilityTowers() {
+  const groups = [];
+  for (const type of Object.keys(ACTIVE_ABILITIES)) {
+    const list = towers.filter(t => t.def.type === type && abilityUnlocked(t));
+    if (list.length) groups.push({ type, list });
+  }
+  return groups;
+}
+
 function refreshAbilityMenu() {
-  const unlocked = towers.filter(t => ACTIVE_ABILITIES[t.def.type] && abilityUnlocked(t));
-  if (!sameTowerList(unlocked, abilityMenuTowers)) {
-    abilityMenuTowers = unlocked;
-    rebuildAbilityMenu(unlocked);
+  const groups = groupedAbilityTowers();
+  const flat = groups.flatMap(g => g.list);
+  if (!sameTowerList(flat, abilityMenuTowers)) {
+    abilityMenuTowers = flat;
+    rebuildAbilityMenu(groups);
     return;
   }
   document.querySelectorAll('#ability-menu-content .ability-row-btn').forEach((btn, i) => {
-    const t = unlocked[i];
+    const t = flat[i];
     if (t.activeCooldown > 0) {
       btn.disabled = true;
       btn.classList.remove('ability-ready');
@@ -569,39 +586,51 @@ function refreshAbilityMenu() {
   });
 }
 
-function rebuildAbilityMenu(unlocked) {
-  document.getElementById('ability-menu').style.display = unlocked.length ? 'flex' : 'none';
+function rebuildAbilityMenu(groups) {
+  hoveredAbilityTower = null;
+  document.getElementById('ability-menu').style.display = groups.length ? 'flex' : 'none';
   const content = document.getElementById('ability-menu-content');
   content.innerHTML = '';
-  unlocked.forEach(t => {
-    const ability = ACTIVE_ABILITIES[t.def.type];
-    const row = document.createElement('div');
-    row.className = 'ability-row';
+  groups.forEach(({ type, list }) => {
+    const ability = ACTIVE_ABILITIES[type];
+    const group = document.createElement('div');
+    group.className = 'ability-group';
     const top = document.createElement('div');
     top.className = 'ability-row-top';
     const label = document.createElement('span');
     label.className = 'ability-row-label';
     label.innerHTML = ability.icon + ' ' + ability.name;
-    const btn = document.createElement('button');
-    btn.className = 'ability-row-btn';
-    if (t.activeCooldown > 0) {
-      btn.disabled = true;
-      btn.textContent = '⏳ ' + Math.ceil(t.activeCooldown/60) + 's';
-    } else {
-      btn.disabled = false;
-      btn.textContent = 'Activate!';
-      btn.classList.add('ability-ready');
-    }
-    btn.addEventListener('click', () => activateTowerAbility(t));
-    wireButtonHoverColor(btn);
     top.appendChild(label);
-    top.appendChild(btn);
     const desc = document.createElement('div');
     desc.className = 'ability-row-desc';
     desc.textContent = ability.desc;
-    row.appendChild(top);
-    row.appendChild(desc);
-    content.appendChild(row);
+    group.appendChild(top);
+    group.appendChild(desc);
+    list.forEach((t, i) => {
+      const row = document.createElement('div');
+      row.className = 'ability-instance-row';
+      const instLabel = document.createElement('span');
+      instLabel.className = 'ability-instance-label';
+      instLabel.textContent = '#' + (i + 1);
+      const btn = document.createElement('button');
+      btn.className = 'ability-row-btn';
+      if (t.activeCooldown > 0) {
+        btn.disabled = true;
+        btn.textContent = '⏳ ' + Math.ceil(t.activeCooldown/60) + 's';
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Activate!';
+        btn.classList.add('ability-ready');
+      }
+      btn.addEventListener('click', () => activateTowerAbility(t));
+      row.addEventListener('mouseenter', () => hoveredAbilityTower = t);
+      row.addEventListener('mouseleave', () => { if (hoveredAbilityTower === t) hoveredAbilityTower = null; });
+      wireButtonHoverColor(btn);
+      row.appendChild(instLabel);
+      row.appendChild(btn);
+      group.appendChild(row);
+    });
+    content.appendChild(group);
   });
 }
 
@@ -735,6 +764,7 @@ function ctxPathUpgrade(slot) {
 function ctxSell() {
   if (!ctxTower || gameOver) return;
   gold += Math.floor(ctxTower.invested * 0.5);
+  if (hoveredAbilityTower === ctxTower) hoveredAbilityTower = null;
   towers = towers.filter(t => t !== ctxTower);
   updateUI();
   hideTowerContext();
@@ -1264,6 +1294,7 @@ function restartGame() {
   clearMode();
   hideTowerContext();
   abilityMenuTowers = [];
+  hoveredAbilityTower = null;
   setGameChromeVisible(false);
   updateStartBest();
   updateUI();
@@ -1296,6 +1327,7 @@ function beginRun() {
   waveActive = false; spawnQueue = []; spawnTimer = 0;
   gameOver = false; autoDelay = 0; tick_count = 0;
   abilityMenuTowers = [];
+  hoveredAbilityTower = null;
   clearMode();
   hideTowerContext();
   generatePath(selectedMap);
@@ -1400,6 +1432,16 @@ function draw() {
         ctx.fillRect(t.gx*CELL+3, barY, barW * (level/MAX_PATH_LEVEL), barH);
       }
       barY += barH + barGap;
+    }
+    if (t === hoveredAbilityTower) {
+      ctx.save();
+      ctx.strokeStyle = '#f0c040';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#f0c040';
+      ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.roundRect(t.gx*CELL+1, t.gy*CELL+1, CELL-3, CELL-3, 4);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
