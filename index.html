@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1a1a2e; overflow: hidden; cursor: default; }
-#ui { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
+body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: default; }
+#ui { position: fixed; top: 0; left: 0; right: 0; z-index: 600; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
 .stat { font-size: 12px; color: #aaa; }
 .stat span { color: #fff; font-weight: 500; }
 #ui button, #tower-menu button, #ability-menu button, #action-menu button, #tower-context-menu button, #start-panel button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
@@ -92,7 +92,7 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <div class="stat">☠️ <span id="score">0</span></div>
 </div>
 <canvas id="c"></canvas>
-<div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
+<div id="msg" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;z-index:600;"></div>
 <div id="title-screen">
   <div id="title-name">🏰 Tower Defense</div>
   <div id="title-tagline">Defend the castle. Upgrade relentlessly. Survive the swarm.</div>
@@ -191,16 +191,18 @@ const ctx = canvas.getContext('2d');
 const cursorEl = document.getElementById('cursor-tower');
 const COLS = 22;
 const ROWS = 14;
-// Reserve room on every side for the fixed-position chrome around the canvas so a
-// maxed-out zoom never renders underneath (and gets stolen clicks from) the Towers
-// panel, stat bar, or the Auto/Speed/Start Wave row.
+// Reserve room on the left/right for the fixed-position chrome flanking the canvas
+// (Towers panel, a little breathing room on the right) so a maxed-out zoom never
+// renders underneath -- and steals clicks from -- that fixed chrome.
 const RESERVED_LEFT = 145;   // Towers panel width
 const RESERVED_RIGHT = 20;
-const RESERVED_TOP = 36;     // stat bar
-const RESERVED_BOTTOM = 50;  // Auto/Speed/Start Wave row
+const RESERVED_TOP = 36;     // stat bar (now fixed, so the canvas needs an explicit push down)
 const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT - RESERVED_RIGHT);
-const availH = Math.max(ROWS, window.innerHeight - RESERVED_TOP - RESERVED_BOTTOM);
-const CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
+// Width, not height, is maximized: most windows are wider relative to the 22x14 grid
+// than they are tall, so capping by height as well left large unused side margins.
+// Filling the width instead means the map can now be taller than one screen -- the
+// page scrolls for the rest, with the stat bar/side panels pinned in place.
+const CELL = Math.floor(availW / COLS);
 const GAME_W = COLS * CELL;
 const GAME_H = ROWS * CELL;
 
@@ -208,7 +210,9 @@ canvas.width = GAME_W;
 canvas.height = GAME_H;
 canvas.style.display = 'block';
 canvas.style.margin = '0';
+canvas.style.marginTop = RESERVED_TOP + 'px';
 canvas.style.marginLeft = (RESERVED_LEFT + Math.max(0, (availW - GAME_W) / 2)) + 'px';
+canvas.style.marginBottom = '20px';
 
 // All sound is synthesized with WebAudio (no asset files). The context is created lazily
 // since browsers require it to happen inside a user gesture (a click already triggers it).
