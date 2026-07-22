@@ -136,7 +136,7 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
     <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
     <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
     <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
-    <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')">🧊 Frost (110g)</button>
+    <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
   </div>
 </div>
 <div id="ability-menu" style="display:none;">
@@ -546,6 +546,16 @@ function toggleAbilityMenu() { setAbilityMenuOpen(!abilityMenuOpen); }
 // landing on an element mid-swap and silently missing.
 let abilityMenuTowers = [];
 let hoveredAbilityTower = null;
+let abilityTipShown = false;
+const WAVE_TIPS = {
+  2: '🐴 Trojan horse incoming — kill it and the 3 units it hides will scatter!',
+  3: '✈️ Air units and 🏃 Sprinters incoming!',
+  4: '🛡️ Shielded enemies incoming — they resist damage until the shield breaks!',
+  5: '🟢 Oozes incoming — they split into smaller enemies on death!',
+  6: '💉 Medics incoming — they heal nearby enemies, so target them first!',
+  10: '💀 Boss wave! A boss appears every 5 waves, cycling Classic / Armored / Swarm variants.',
+};
+let shownWaveTips = new Set();
 function sameTowerList(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -568,8 +578,13 @@ function refreshAbilityMenu() {
   const groups = groupedAbilityTowers();
   const flat = groups.flatMap(g => g.list);
   if (!sameTowerList(flat, abilityMenuTowers)) {
+    const hadNone = abilityMenuTowers.length === 0;
     abilityMenuTowers = flat;
     rebuildAbilityMenu(groups);
+    if (hadNone && flat.length && !abilityTipShown) {
+      abilityTipShown = true;
+      showMsg('✨ Abilities tab unlocked — click it to fire your tower\'s active ability!', 4000);
+    }
     return;
   }
   document.querySelectorAll('#ability-menu-content .ability-row-btn').forEach((btn, i) => {
@@ -1010,6 +1025,10 @@ function startWave() {
   document.getElementById('start-btn').disabled = true;
   updateUI();
   sfxWaveStart();
+  if (WAVE_TIPS[wave] && !shownWaveTips.has(wave)) {
+    shownWaveTips.add(wave);
+    showMsg(WAVE_TIPS[wave], 4000);
+  }
 }
 
 function updateUI() {
@@ -1328,6 +1347,8 @@ function beginRun() {
   gameOver = false; autoDelay = 0; tick_count = 0;
   abilityMenuTowers = [];
   hoveredAbilityTower = null;
+  abilityTipShown = false;
+  shownWaveTips = new Set();
   clearMode();
   hideTowerContext();
   generatePath(selectedMap);
@@ -1335,7 +1356,6 @@ function beginRun() {
   setGameChromeVisible(true);
   gameStarted = true;
   updateUI();
-  showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max Arrow\'s or Frost\'s Power path to unlock its active ability — a new ✨ Abilities tab will appear on the right to fire it!', 7000);
 }
 
 function drawBeam(x1, y1, x2, y2, heat) {
