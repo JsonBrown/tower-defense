@@ -89,7 +89,6 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
   <div class="stat">❤️ <span id="lives">20</span></div>
   <div class="stat">💰 <span id="gold">150</span></div>
   <div class="stat">🌊 Wave <span id="wave">0</span></div>
-  <div class="stat">☠️ <span id="score">0</span></div>
 </div>
 <canvas id="c"></canvas>
 <div id="msg" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;z-index:600;"></div>
@@ -191,13 +190,11 @@ const ctx = canvas.getContext('2d');
 const cursorEl = document.getElementById('cursor-tower');
 const COLS = 22;
 const ROWS = 14;
-// Reserve room on the left/right for the fixed-position chrome flanking the canvas
-// (Towers panel, a little breathing room on the right) so a maxed-out zoom never
-// renders underneath -- and steals clicks from -- that fixed chrome.
+// Only the left side is reserved, for the Towers panel -- it needs its own clear
+// column since it's clickable. The stat bar overlapping the top of the map is fine
+// (it floats on top via z-index and isn't interactive), so no top/right reservation.
 const RESERVED_LEFT = 145;   // Towers panel width
-const RESERVED_RIGHT = 20;
-const RESERVED_TOP = 36;     // stat bar (now fixed, so the canvas needs an explicit push down)
-const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT - RESERVED_RIGHT);
+const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT);
 // Width, not height, is maximized: most windows are wider relative to the 22x14 grid
 // than they are tall, so capping by height as well left large unused side margins.
 // Filling the width instead means the map can now be taller than one screen -- the
@@ -210,7 +207,6 @@ canvas.width = GAME_W;
 canvas.height = GAME_H;
 canvas.style.display = 'block';
 canvas.style.margin = '0';
-canvas.style.marginTop = RESERVED_TOP + 'px';
 canvas.style.marginLeft = (RESERVED_LEFT + Math.max(0, (availW - GAME_W) / 2)) + 'px';
 canvas.style.marginBottom = '20px';
 
@@ -1043,7 +1039,6 @@ function updateUI() {
   document.getElementById('lives').textContent = lives;
   document.getElementById('gold').textContent = gold;
   document.getElementById('wave').textContent = wave;
-  document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
   updateCtxPaths();
