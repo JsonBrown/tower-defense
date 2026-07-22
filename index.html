@@ -38,11 +38,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #auto-btn.on { background: #1a2a1a; border-color: #4a8a4a !important; }
 #speed-btn.on { background: #2a1a3a; border-color: #7a40aa !important; }
 #cursor-tower { position: fixed; pointer-events: none; font-size: 20px; transform: translate(-50%, -50%); display: none; z-index: 999; filter: drop-shadow(0 0 6px rgba(255,150,0,0.8)); }
-#tower-menu { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-left: none; border-radius: 0 8px 8px 0; }
-#tower-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
-#tower-menu.open #tower-menu-content { max-width: 160px; padding: 10px; }
-#tower-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
-#tower-menu-handle:hover { background: #14407a; }
+#tower-menu { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #16213e; border: 1px solid #0f3460; border-left: none; border-radius: 0 8px 8px 0; }
+#tower-menu-label { font-size: 11px; color: #7891b0; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 #ability-menu { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-right: none; border-radius: 8px 0 0 8px; }
 #ability-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
 #ability-menu.open #ability-menu-content { max-width: 220px; padding: 10px; }
@@ -131,13 +128,11 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 </div>
 <div id="cursor-tower"></div>
 <div id="tower-menu">
-  <button id="tower-menu-handle" onclick="toggleTowerMenu()">🏗️ Towers ▶</button>
-  <div id="tower-menu-content">
-    <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
-    <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
-    <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
-    <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')">🧊 Frost (110g)</button>
-  </div>
+  <div id="tower-menu-label">🏗️ Towers</div>
+  <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
+  <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
+  <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
+  <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
 </div>
 <div id="ability-menu" style="display:none;">
   <button id="ability-menu-handle" onclick="toggleAbilityMenu()">✨ Abilities ▶</button>
@@ -194,16 +189,26 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const cursorEl = document.getElementById('cursor-tower');
-const CELL = 28;
-const GAME_W = 640;
-const GAME_H = 400;
-const COLS = Math.floor(GAME_W / CELL);
-const ROWS = Math.floor(GAME_H / CELL);
+const COLS = 22;
+const ROWS = 14;
+// Reserve room on every side for the fixed-position chrome around the canvas so a
+// maxed-out zoom never renders underneath (and gets stolen clicks from) the Towers
+// panel, stat bar, or the Auto/Speed/Start Wave row.
+const RESERVED_LEFT = 145;   // Towers panel width
+const RESERVED_RIGHT = 20;
+const RESERVED_TOP = 36;     // stat bar
+const RESERVED_BOTTOM = 50;  // Auto/Speed/Start Wave row
+const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT - RESERVED_RIGHT);
+const availH = Math.max(ROWS, window.innerHeight - RESERVED_TOP - RESERVED_BOTTOM);
+const CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
+const GAME_W = COLS * CELL;
+const GAME_H = ROWS * CELL;
 
 canvas.width = GAME_W;
 canvas.height = GAME_H;
 canvas.style.display = 'block';
-canvas.style.margin = '0 auto';
+canvas.style.margin = '0';
+canvas.style.marginLeft = (RESERVED_LEFT + Math.max(0, (availW - GAME_W) / 2)) + 'px';
 
 // All sound is synthesized with WebAudio (no asset files). The context is created lazily
 // since browsers require it to happen inside a user gesture (a click already triggers it).
@@ -490,14 +495,6 @@ function selectMode(m) {
   hideTowerContext();
 }
 
-let towerMenuOpen = false;
-function setTowerMenuOpen(open) {
-  towerMenuOpen = open;
-  document.getElementById('tower-menu').classList.toggle('open', open);
-  document.getElementById('tower-menu-handle').textContent = '🏗️ Towers ' + (open ? '◀' : '▶');
-}
-function toggleTowerMenu() { setTowerMenuOpen(!towerMenuOpen); }
-
 function clearMode() {
   mode = null;
   ['arrow','laser','inferno','frost'].forEach(t => {
@@ -546,6 +543,23 @@ function toggleAbilityMenu() { setAbilityMenuOpen(!abilityMenuOpen); }
 // landing on an element mid-swap and silently missing.
 let abilityMenuTowers = [];
 let hoveredAbilityTower = null;
+let abilityTipShown = false;
+const WAVE_TIPS = {
+  3: '🐴 Trojan horse incoming — kill it and the 3 units it hides will scatter!',
+  4: '🏃 Sprinters incoming!',
+  5: '🛡️ Shielded enemies incoming — they resist damage until the shield breaks!',
+  6: '🟢 Oozes incoming — they split into smaller enemies on death!',
+  7: '💉 Medics incoming — they heal nearby enemies, so target them first!',
+};
+// These warn a wave early (near the tail of the prior wave) since they take build-up
+// to counter — an anti-air upgrade, or a strong/varied roster for a boss fight —
+// rather than just an in-the-moment targeting call.
+const EARLY_WAVE_TIPS = {
+  4: '✈️ Air units next wave — make sure a tower can target air!',
+  10: '💀 Boss next wave! A boss appears every 5 waves, cycling Classic / Armored / Swarm variants.',
+};
+let shownWaveTips = new Set();
+let shownEarlyTips = new Set();
 function sameTowerList(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -568,8 +582,13 @@ function refreshAbilityMenu() {
   const groups = groupedAbilityTowers();
   const flat = groups.flatMap(g => g.list);
   if (!sameTowerList(flat, abilityMenuTowers)) {
+    const hadNone = abilityMenuTowers.length === 0;
     abilityMenuTowers = flat;
     rebuildAbilityMenu(groups);
+    if (hadNone && flat.length && !abilityTipShown) {
+      abilityTipShown = true;
+      showMsg('✨ Abilities tab unlocked — click it to fire your tower\'s active ability!', 4000);
+    }
     return;
   }
   document.querySelectorAll('#ability-menu-content .ability-row-btn').forEach((btn, i) => {
@@ -992,24 +1011,28 @@ function startWave() {
   wave++; waveActive = true;
   const total = 5 + wave * 3;
   const isBossWave = wave >= 10 && wave % 5 === 0;
-  const trojanIdx = wave >= 2 ? Math.floor(total / 2) : -1;
+  const trojanIdx = wave >= 3 ? Math.floor(total / 2) : -1;
   const bossIdx = isBossWave ? total - 1 : -1;
   const bossVariant = isBossWave ? bossVariantForWave(wave) : null;
   spawnQueue = [];
   for (let i = 0; i < total; i++) {
     if (i === bossIdx) { spawnQueue.push({ type: 'boss', variant: bossVariant }); continue; }
     if (i === trojanIdx) { spawnQueue.push({ type: 'trojan' }); continue; }
-    if (wave >= 3 && i % 4 === 3) { spawnQueue.push({ type: 'air' }); continue; }
-    if (wave >= 4 && i % 5 === 1) { spawnQueue.push({ type: 'shield' }); continue; }
-    if (wave >= 6 && i % 7 === 2) { spawnQueue.push({ type: 'medic' }); continue; }
-    if (wave >= 5 && i % 6 === 4) { spawnQueue.push({ type: 'ooze' }); continue; }
-    if (wave >= 3 && i % 5 === 0) { spawnQueue.push({ type: 'sprinter' }); continue; }
+    if (wave >= 4 && i % 4 === 3) { spawnQueue.push({ type: 'air' }); continue; }
+    if (wave >= 5 && i % 5 === 1) { spawnQueue.push({ type: 'shield' }); continue; }
+    if (wave >= 7 && i % 7 === 2) { spawnQueue.push({ type: 'medic' }); continue; }
+    if (wave >= 6 && i % 6 === 4) { spawnQueue.push({ type: 'ooze' }); continue; }
+    if (wave >= 4 && i % 5 === 0) { spawnQueue.push({ type: 'sprinter' }); continue; }
     spawnQueue.push({ type: 'ground' });
   }
   spawnTimer = 0;
   document.getElementById('start-btn').disabled = true;
   updateUI();
   sfxWaveStart();
+  if (WAVE_TIPS[wave] && !shownWaveTips.has(wave)) {
+    shownWaveTips.add(wave);
+    showMsg(WAVE_TIPS[wave], 4000);
+  }
 }
 
 function updateUI() {
@@ -1221,6 +1244,14 @@ function tick() {
   bullets = bullets.filter(b => !b.done);
   enemies = enemies.filter(e => !e.dead && e.hp>0);
 
+  if (waveActive && spawnQueue.length===0 && enemies.length<=3) {
+    const nextTip = EARLY_WAVE_TIPS[wave+1];
+    if (nextTip && !shownEarlyTips.has(wave+1)) {
+      shownEarlyTips.add(wave+1);
+      showMsg(nextTip, 4000);
+    }
+  }
+
   if (waveActive && spawnQueue.length===0 && enemies.length===0) {
     waveActive = false;
     const bonus = Math.round((45+wave*5) * DIFFICULTIES[difficulty].goldMult);
@@ -1328,6 +1359,9 @@ function beginRun() {
   gameOver = false; autoDelay = 0; tick_count = 0;
   abilityMenuTowers = [];
   hoveredAbilityTower = null;
+  abilityTipShown = false;
+  shownWaveTips = new Set();
+  shownEarlyTips = new Set();
   clearMode();
   hideTowerContext();
   generatePath(selectedMap);
@@ -1335,7 +1369,6 @@ function beginRun() {
   setGameChromeVisible(true);
   gameStarted = true;
   updateUI();
-  showMsg('New: 🧊 Frost tower slows on hit and can shatter frozen enemies!\n✈️ Air units arrive from wave 3, 🛡️ Shielded from wave 4, 🏃 Sprinters from wave 3, 🟢 Oozes (split on death) from wave 5, 💉 Medics (heal nearby foes) from wave 6.\n🐴 Trojan horses hide 3 units — kill it and they scatter!\n💀 Wave 10+: a boss every 5 waves, cycling between Classic / Armored (damage resist) / Swarm (spawns fliers) variants!\n💪 Max Arrow\'s or Frost\'s Power path to unlock its active ability — a new ✨ Abilities tab will appear on the right to fire it!', 7000);
 }
 
 function drawBeam(x1, y1, x2, y2, heat) {
