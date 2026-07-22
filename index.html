@@ -315,120 +315,125 @@ const PATH_META = {
   },
 };
 
+// Each path used to be a flat stat ramp (damage OR fire rate OR range) with a single
+// flourish bolted onto tier 5. Now the flavor mechanic that makes each path unique
+// shows up from the middle tiers onward and keeps scaling alongside the base stat,
+// so a path reads as its own thing well before it's maxed out — not just "+X%" five
+// times with a twist at the very end.
 const PATH_DEFS = {
   arrow: {
     power: [
       { cost: 45,  dmgMult: 1.20 },
       { cost: 75,  dmgMult: 1.40 },
-      { cost: 135, dmgMult: 1.65 },
-      { cost: 210, dmgMult: 1.95 },
-      { cost: 300, dmgMult: 2.40, crit: 0.20, critMult: 2 },
+      { cost: 135, dmgMult: 1.55, crit: 0.12, critMult: 1.8 },
+      { cost: 210, dmgMult: 1.75, crit: 0.20, critMult: 2.0 },
+      { cost: 300, dmgMult: 2.00, crit: 0.30, critMult: 2.5 },
     ],
     speed: [
       { cost: 45,  rateMult: 0.90 },
       { cost: 75,  rateMult: 0.80 },
-      { cost: 135, rateMult: 0.68 },
-      { cost: 210, rateMult: 0.55 },
-      { cost: 300, rateMult: 0.42, multishot: 2 },
+      { cost: 135, rateMult: 0.72, quickdraw: 0.15 },
+      { cost: 210, rateMult: 0.64, quickdraw: 0.30 },
+      { cost: 300, rateMult: 0.55, quickdraw: 0.50 },
     ],
     utility: [
       { cost: 40,  rangeAdd: 0.5 },
       { cost: 70,  rangeAdd: 0.75, unlockAA: true },
-      { cost: 120, rangeAdd: 1.0 },
+      { cost: 120, rangeAdd: 1.0,  pierce: 1 },
       { cost: 180, rangeAdd: 1.25 },
-      { cost: 270, rangeAdd: 1.5, pierce: 1 },
+      { cost: 270, rangeAdd: 1.5 },
     ],
   },
   laser: {
     power: [
       { cost: 60,  dmgMult: 1.20 },
-      { cost: 100, dmgMult: 1.40 },
-      { cost: 165, dmgMult: 1.65 },
-      { cost: 255, dmgMult: 1.95 },
-      { cost: 360, dmgMult: 2.40, overcharge: 0.20, overchargeMult: 2.0 },
+      { cost: 100, dmgMult: 1.38, overcharge: 0.10, overchargeMult: 1.6 },
+      { cost: 165, dmgMult: 1.58, overcharge: 0.16, overchargeMult: 1.8 },
+      { cost: 255, dmgMult: 1.82, overcharge: 0.22, overchargeMult: 2.0 },
+      { cost: 360, dmgMult: 2.10, overcharge: 0.30, overchargeMult: 2.4 },
     ],
     speed: [
       { cost: 60,  rateMult: 0.88 },
       { cost: 100, rateMult: 0.76 },
-      { cost: 165, rateMult: 0.62 },
-      { cost: 255, rateMult: 0.46 },
-      { cost: 360, rateMult: 0.30 },
+      { cost: 165, rateMult: 0.66, twinBolt: 0.35 },
+      { cost: 255, rateMult: 0.54, twinBolt: 0.55 },
+      { cost: 360, rateMult: 0.42, twinBolt: 0.75 },
     ],
     utility: [
       { cost: 55,  rangeAdd: 0.4 },
       { cost: 85,  rangeAdd: 0.6, unlockAA: true },
-      { cost: 145, rangeAdd: 0.8 },
-      { cost: 225, rangeAdd: 1.0 },
-      { cost: 315, rangeAdd: 1.2, chain: 0.5 },
+      { cost: 145, rangeAdd: 0.8, chain: 0.25 },
+      { cost: 225, rangeAdd: 1.0, chain: 0.4 },
+      { cost: 315, rangeAdd: 1.2, chain: 0.6 },
     ],
   },
   inferno: {
     power: [
       { cost: 90,  dmgMult: 1.2 },
       { cost: 150, dmgMult: 1.45 },
-      { cost: 240, dmgMult: 1.75 },
-      { cost: 345, dmgMult: 2.1 },
-      { cost: 480, dmgMult: 2.5 },
+      { cost: 240, dmgMult: 1.75, flashIgnite: 0.15 },
+      { cost: 345, dmgMult: 2.1,  flashIgnite: 0.30 },
+      { cost: 480, dmgMult: 2.5,  flashIgnite: 0.50 },
     ],
     heat: [
       { cost: 90,  heatRate: 1.15 },
       { cost: 150, heatRate: 1.35 },
-      { cost: 240, heatRate: 1.6 },
-      { cost: 345, heatRate: 1.9 },
-      { cost: 480, heatRate: 2.2, cryo: true },
+      { cost: 240, heatRate: 1.6, cryo: true },
+      { cost: 345, heatRate: 1.9, afterburn: 0.4 },
+      { cost: 480, heatRate: 2.2, afterburn: 0.7 },
     ],
     utility: [
       { cost: 75,  rangeAdd: 0.25 },
-      { cost: 130, rangeAdd: 0.5 },
-      { cost: 210, rangeAdd: 0.75 },
-      { cost: 300, rangeAdd: 1.0 },
-      { cost: 420, rangeAdd: 1.25, splash: 0.3 },
+      { cost: 130, rangeAdd: 0.5, splash: 0.15 },
+      { cost: 210, rangeAdd: 0.75, splash: 0.25 },
+      { cost: 300, rangeAdd: 1.0, splash: 0.35 },
+      { cost: 420, rangeAdd: 1.25, splash: 0.5 },
     ],
   },
   frost: {
     power: [
       { cost: 50,  dmgMult: 1.20 },
-      { cost: 85,  dmgMult: 1.40 },
-      { cost: 145, dmgMult: 1.65 },
-      { cost: 220, dmgMult: 1.95 },
-      { cost: 320, dmgMult: 2.3, shatter: 0.75 },
+      { cost: 85,  dmgMult: 1.40, shatter: 0.25 },
+      { cost: 145, dmgMult: 1.65, shatter: 0.45 },
+      { cost: 220, dmgMult: 1.95, shatter: 0.65 },
+      { cost: 320, dmgMult: 2.3,  shatter: 0.90 },
     ],
     chill: [
       { cost: 50,  slowPct: 0.18 },
       { cost: 85,  slowPct: 0.28 },
-      { cost: 145, slowPct: 0.38 },
-      { cost: 220, slowPct: 0.48 },
-      { cost: 320, slowPct: 0.58, freeze: 0.12 },
+      { cost: 145, slowPct: 0.38, freeze: 0.08 },
+      { cost: 220, slowPct: 0.48, freeze: 0.16, armorShred: 0.3 },
+      { cost: 320, slowPct: 0.58, freeze: 0.25, armorShred: 0.5 },
     ],
     utility: [
       { cost: 45,  rangeAdd: 0.5 },
       { cost: 75,  rangeAdd: 0.75, unlockAA: true },
-      { cost: 130, rangeAdd: 1.0 },
-      { cost: 195, rangeAdd: 1.25 },
-      { cost: 290, rangeAdd: 1.5, novaSlow: 0.2 },
+      { cost: 130, rangeAdd: 1.0, novaSlow: 0.10 },
+      { cost: 195, rangeAdd: 1.25, novaSlow: 0.18 },
+      { cost: 290, rangeAdd: 1.5, novaSlow: 0.28 },
     ],
   },
   sniper: {
     power: [
       { cost: 70,  dmgMult: 1.20 },
-      { cost: 120, dmgMult: 1.40 },
-      { cost: 200, dmgMult: 1.65 },
-      { cost: 310, dmgMult: 1.95 },
+      { cost: 120, dmgMult: 1.40, crit: 0.15, critMult: 1.8 },
+      { cost: 200, dmgMult: 1.65, crit: 0.22, critMult: 2.0 },
+      { cost: 310, dmgMult: 1.95, crit: 0.28, critMult: 2.2 },
       { cost: 450, dmgMult: 2.40, crit: 0.35, critMult: 2.5 },
     ],
     speed: [
       { cost: 70,  rateMult: 0.85 },
       { cost: 120, rateMult: 0.72 },
-      { cost: 200, rateMult: 0.58 },
-      { cost: 310, rateMult: 0.45 },
-      { cost: 450, rateMult: 0.32, pierce: 1 },
+      { cost: 200, rateMult: 0.60, pierce: 1, pierceMult: 0.5 },
+      { cost: 310, rateMult: 0.50, pierceMult: 0.75 },
+      { cost: 450, rateMult: 0.32, pierceMult: 1.0 },
     ],
     utility: [
       { cost: 65,  rangeAdd: 0.6 },
-      { cost: 100, rangeAdd: 0.9 },
-      { cost: 170, rangeAdd: 1.2 },
-      { cost: 260, rangeAdd: 1.5 },
-      { cost: 380, rangeAdd: 1.8, armorPierce: 0.5 },
+      { cost: 100, rangeAdd: 0.9,  armorPierce: 0.2 },
+      { cost: 170, rangeAdd: 1.2,  armorPierce: 0.35 },
+      { cost: 260, rangeAdd: 1.5,  armorPierce: 0.45 },
+      { cost: 380, rangeAdd: 1.8,  armorPierce: 0.6 },
     ],
   },
 };
@@ -507,15 +512,21 @@ function describeTier(def) {
   if (def.rangeAdd !== undefined) parts.push('+' + def.rangeAdd + ' range');
   if (def.heatRate !== undefined) parts.push('+' + Math.round((def.heatRate - 1) * 100) + '% heat rate');
   if (def.unlockAA) parts.push('unlocks anti-air targeting');
-  if (def.pierce) parts.push('arrows pierce to a 2nd enemy');
+  if (def.pierce && def.pierceMult === undefined) parts.push('shots pierce to a 2nd enemy');
+  if (def.pierceMult !== undefined) parts.push('pierced 2nd enemy takes ' + Math.round(def.pierceMult*100) + '% dmg');
   if (def.chain) parts.push('beam chains ' + Math.round(def.chain * 100) + '% dmg to a 2nd enemy');
   if (def.splash) parts.push('splashes ' + Math.round(def.splash * 100) + '% dmg to nearby enemies');
   if (def.crit) parts.push(Math.round(def.crit * 100) + '% chance to crit for ' + def.critMult + '×');
   if (def.overcharge) parts.push(Math.round(def.overcharge * 100) + '% chance to overcharge for ' + def.overchargeMult + '×');
   if (def.multishot) parts.push('fires ' + def.multishot + ' shots per attack');
+  if (def.quickdraw) parts.push(Math.round(def.quickdraw*100) + '% chance to fire an extra quickdraw shot');
+  if (def.twinBolt) parts.push('also strikes a 2nd enemy for ' + Math.round(def.twinBolt*100) + '% dmg');
   if (def.cryo) parts.push('chills the target, slowing it up to 40%');
+  if (def.flashIgnite) parts.push(Math.round(def.flashIgnite*100) + '% chance a new target starts already smoldering');
+  if (def.afterburn) parts.push('leaves a burn dealing ' + Math.round(def.afterburn*100) + '% dmg/tick for a few seconds after losing the target');
   if (def.slowPct !== undefined) parts.push('slows target ' + Math.round(def.slowPct*100) + '%');
   if (def.freeze) parts.push(Math.round(def.freeze*100) + '% chance to fully freeze the target briefly');
+  if (def.armorShred) parts.push(Math.round(def.armorShred*100) + '% armor reduction on slowed enemies (vs all damage)');
   if (def.shatter) parts.push(Math.round(def.shatter*100) + '% bonus dmg vs slowed enemies');
   if (def.novaSlow) parts.push('hits pulse ' + Math.round(def.novaSlow*100) + '% slow to nearby enemies');
   if (def.armorPierce) parts.push('ignores ' + Math.round(def.armorPierce*100) + '% of target armor');
@@ -1049,7 +1060,13 @@ function killEnemy(e) {
 }
 
 function applyDamage(e, dmg, armorPierce) {
-  if (e.armor) dmg *= (1 - e.armor * (1 - (armorPierce || 0)));
+  if (e.armor) {
+    // Frost's Deep Chill armorShred only holds while the enemy is actively slowed —
+    // no separate expiry timer needed, it just rides the existing slow state.
+    const shredded = e.armorShredMult !== undefined && e.slowMult !== undefined && e.slowMult < 1;
+    const effArmor = e.armor * (shredded ? e.armorShredMult : 1);
+    dmg *= (1 - effArmor * (1 - (armorPierce || 0)));
+  }
   if (e.shield > 0) {
     const absorb = Math.min(e.shield, dmg);
     e.shield -= absorb;
@@ -1157,6 +1174,11 @@ function tick() {
         enemies.push(makeEnemy('air', undefined, e.pathIdx, e.x, e.y));
       }
     }
+    if (e.burnTicks > 0) {
+      applyDamage(e, e.burnDps);
+      e.burnTicks--;
+      if (!e.dead) e.onFire = Math.max(e.onFire || 0, 60);
+    }
   }
 
   function findPierceTarget(x, y, exclude) {
@@ -1193,7 +1215,10 @@ function tick() {
       }
       if (best) {
         t.cooldown = stats.rate;
-        const shots = stats.multishot || 1;
+        // Quickdraw (Arrow) is a chance at ONE bonus shot per attack, separate from
+        // a guaranteed multishot count (no tower currently has both).
+        let shots = stats.multishot || 1;
+        if (stats.quickdraw && Math.random() < stats.quickdraw) shots++;
         for (let i = 0; i < shots; i++) {
           let dmg = stats.damage;
           let crit = false;
@@ -1201,7 +1226,17 @@ function tick() {
           let overcharge = false;
           if (stats.overcharge && Math.random() < stats.overcharge) { dmg *= stats.overchargeMult; overcharge = true; }
           if (stats.shatter && best.slowMult !== undefined && best.slowMult < 1) dmg *= (1 + stats.shatter);
-          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, armorPierce: stats.armorPierce, crit, overcharge });
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, pierceMult: stats.pierceMult, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, armorPierce: stats.armorPierce, armorShred: stats.armorShred, crit, overcharge });
+        }
+        // Twin Bolt (Laser): also strikes a 2nd, different enemy in range for partial dmg.
+        if (stats.twinBolt) {
+          let second = null, secondIdx = -1;
+          for (const e2 of enemies) {
+            if (e2 === best || e2.dead || e2.hp <= 0) continue;
+            if (e2.flying && !canHitAir) continue;
+            if (dist(c.x,c.y,e2.x,e2.y) <= stats.range*CELL && e2.pathIdx > secondIdx) { second = e2; secondIdx = e2.pathIdx; }
+          }
+          if (second) bullets.push({ x: c.x, y: c.y, target: second, speed: t.def.speed, dmg: stats.damage * stats.twinBolt, color: t.def.pcolor, size: 2, type: t.def.type });
         }
       }
     } else {
@@ -1217,14 +1252,24 @@ function tick() {
         if (dist(c.x,c.y,e.x,e.y) <= range && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
       if (best) {
-        // Check if same target — heat up, else reset
-        if (t.heatTarget !== best) { t.heat = 0; t.heatTarget = best; }
+        // Check if same target — heat up, else reset. Flash Ignite (Napalm Mixture)
+        // gives a chance the new target starts already partway to full heat.
+        if (t.heatTarget !== best) {
+          t.heat = (stats.flashIgnite && Math.random() < stats.flashIgnite) ? 180 * 0.4 : 0;
+          t.heatTarget = best;
+        }
         t.heat = Math.min(t.heat + stats.heatRate, 180);
         const heat01 = t.heat / 180;
         // damage scales with heat: starts at 0.3/tick, ramps to 4/tick over 3 seconds, scaled by path level
         const dmgPerTick = (0.3 + heat01 * 4) * stats.dmgMult;
         applyDamage(best, dmgPerTick);
         best.onFire = t.heat;
+        // Afterburn (Sustained Burn): target keeps taking a fraction of that tick's
+        // damage for a while even after the beam loses it.
+        if (stats.afterburn && !best.dead) {
+          best.burnDps = dmgPerTick * stats.afterburn;
+          best.burnTicks = 90;
+        }
         // Cryo Core: the longer the beam stays locked on, the colder (slower) the target gets
         if (stats.cryo && !best.dead) {
           const slowPct = 0.05 + heat01 * 0.35;
@@ -1272,6 +1317,8 @@ function tick() {
       if (b.slowPct && !b.target.dead) {
         b.target.slowMult = Math.min(b.target.slowMult !== undefined ? b.target.slowMult : 1, 1 - b.slowPct);
         if (b.freeze && Math.random() < b.freeze) { b.target.slowMult = 0; b.target.freezeLock = 24; }
+        // Deep Chill capstone: while slowed, the target's armor is shredded against ALL damage sources
+        if (b.armorShred) b.target.armorShredMult = Math.min(b.target.armorShredMult !== undefined ? b.target.armorShredMult : 1, 1 - b.armorShred);
         // Frost Utility capstone: nova pulses a lighter slow to nearby enemies too
         if (b.novaSlow) {
           for (const e of enemies) {
@@ -1280,11 +1327,12 @@ function tick() {
           }
         }
       }
-      // Arrow Utility capstone: pierce hits a second nearby enemy for full damage
+      // Arrow/Sniper: pierce hits a second nearby enemy (Sniper's Rapid Reload ramps
+      // the pierced hit up from partial to full dmg across its tiers; Arrow's is always full)
       if (b.pierce) {
         const second = findPierceTarget(tx, ty, b.target);
         if (second) {
-          applyDamage(second, b.dmg);
+          applyDamage(second, b.dmg * (b.pierceMult !== undefined ? b.pierceMult : 1));
           for (let i=0;i<3;i++) particles.push({ x:second.x, y:second.y, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:12, color:b.color });
         }
       }
