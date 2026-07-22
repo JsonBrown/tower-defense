@@ -38,11 +38,8 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 #auto-btn.on { background: #1a2a1a; border-color: #4a8a4a !important; }
 #speed-btn.on { background: #2a1a3a; border-color: #7a40aa !important; }
 #cursor-tower { position: fixed; pointer-events: none; font-size: 20px; transform: translate(-50%, -50%); display: none; z-index: 999; filter: drop-shadow(0 0 6px rgba(255,150,0,0.8)); }
-#tower-menu { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-left: none; border-radius: 0 8px 8px 0; }
-#tower-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
-#tower-menu.open #tower-menu-content { max-width: 160px; padding: 10px; }
-#tower-menu-handle { writing-mode: vertical-rl; padding: 16px 6px; font-size: 12px; border: none; background: #0f3460; color: #fff; cursor: pointer; font-family: sans-serif; }
-#tower-menu-handle:hover { background: #14407a; }
+#tower-menu { position: fixed; left: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; flex-direction: column; gap: 10px; padding: 10px; background: #16213e; border: 1px solid #0f3460; border-left: none; border-radius: 0 8px 8px 0; }
+#tower-menu-label { font-size: 11px; color: #7891b0; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; }
 #ability-menu { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 500; display: flex; align-items: stretch; overflow: hidden; background: #16213e; border: 1px solid #0f3460; border-right: none; border-radius: 8px 0 0 8px; }
 #ability-menu-content { max-width: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; justify-content: center; transition: max-width 0.25s ease, padding 0.25s ease; padding: 10px 0; }
 #ability-menu.open #ability-menu-content { max-width: 220px; padding: 10px; }
@@ -131,13 +128,11 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 </div>
 <div id="cursor-tower"></div>
 <div id="tower-menu">
-  <button id="tower-menu-handle" onclick="toggleTowerMenu()">🏗️ Towers ▶</button>
-  <div id="tower-menu-content">
-    <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
-    <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
-    <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
-    <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
-  </div>
+  <div id="tower-menu-label">🏗️ Towers</div>
+  <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
+  <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
+  <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
+  <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
 </div>
 <div id="ability-menu" style="display:none;">
   <button id="ability-menu-handle" onclick="toggleAbilityMenu()">✨ Abilities ▶</button>
@@ -199,7 +194,7 @@ const ROWS = 14;
 // Reserve room on every side for the fixed-position chrome around the canvas so a
 // maxed-out zoom never renders underneath (and gets stolen clicks from) the Towers
 // panel, stat bar, or the Auto/Speed/Start Wave row.
-const RESERVED_LEFT = 180;   // Towers panel width when expanded
+const RESERVED_LEFT = 145;   // Towers panel width
 const RESERVED_RIGHT = 20;
 const RESERVED_TOP = 36;     // stat bar
 const RESERVED_BOTTOM = 50;  // Auto/Speed/Start Wave row
@@ -499,14 +494,6 @@ function selectMode(m) {
   updateCursor();
   hideTowerContext();
 }
-
-let towerMenuOpen = false;
-function setTowerMenuOpen(open) {
-  towerMenuOpen = open;
-  document.getElementById('tower-menu').classList.toggle('open', open);
-  document.getElementById('tower-menu-handle').textContent = '🏗️ Towers ' + (open ? '◀' : '▶');
-}
-function toggleTowerMenu() { setTowerMenuOpen(!towerMenuOpen); }
 
 function clearMode() {
   mode = null;
