@@ -95,7 +95,7 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 <div id="title-screen">
   <div id="title-name">🏰 Tower Defense</div>
   <div id="title-tagline">Defend the castle. Upgrade relentlessly. Survive the swarm.</div>
-  <div id="title-tower-row">🏹 ⚡ 🔥 🧊</div>
+  <div id="title-tower-row">🏹 ⚡ 🔥 🧊 🎯</div>
   <button id="title-play-btn" onclick="showStartPanel()">▶ Play</button>
 </div>
 <div id="gameover-panel">
@@ -132,6 +132,7 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
   <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
   <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
   <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
+  <button class="tower-btn" id="sniper-btn" onclick="selectMode('sniper')" title="Longest range, huge single-shot damage, always targets the toughest enemy in range, and can hit air from the start">🎯 Sniper (180g)</button>
 </div>
 <div id="ability-menu" style="display:none;">
   <button id="ability-menu-handle" onclick="toggleAbilityMenu()">✨ Abilities ▶</button>
@@ -271,6 +272,7 @@ const TOWER_DEFS = {
   laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false },
   inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true },
   frost:   { cost: 110, range: 3.25,  damage: 35, rate: 45, color: '#40c0ff', pcolor: '#c0f0ff', speed: 8,  type: 'frost',   icon: '🧊', canTargetAir: false },
+  sniper:  { cost: 180, range: 5.5,   damage: 260, rate: 150, color: '#c8c8d8', pcolor: '#eaeaff', speed: 26, type: 'sniper', icon: '🎯', canTargetAir: true },
 };
 
 // Each tier entry is the tower's stat state AT that tier (not a delta). Tier index 0 = path level 1.
@@ -279,6 +281,7 @@ const PATH_KEYS = {
   laser:   ['power', 'speed', 'utility'],
   inferno: ['power', 'heat',  'utility'],
   frost:   ['power', 'chill', 'utility'],
+  sniper:  ['power', 'speed', 'utility'],
 };
 
 const PATH_META = {
@@ -382,6 +385,29 @@ const PATH_DEFS = {
       { cost: 290, rangeAdd: 1.5, novaSlow: 0.2 },
     ],
   },
+  sniper: {
+    power: [
+      { cost: 70,  dmgMult: 1.20 },
+      { cost: 120, dmgMult: 1.40 },
+      { cost: 200, dmgMult: 1.65 },
+      { cost: 310, dmgMult: 1.95 },
+      { cost: 450, dmgMult: 2.40, crit: 0.35, critMult: 2.5 },
+    ],
+    speed: [
+      { cost: 70,  rateMult: 0.85 },
+      { cost: 120, rateMult: 0.72 },
+      { cost: 200, rateMult: 0.58 },
+      { cost: 310, rateMult: 0.45 },
+      { cost: 450, rateMult: 0.32, pierce: 1 },
+    ],
+    utility: [
+      { cost: 65,  rangeAdd: 0.6 },
+      { cost: 100, rangeAdd: 0.9 },
+      { cost: 170, rangeAdd: 1.2 },
+      { cost: 260, rangeAdd: 1.5 },
+      { cost: 380, rangeAdd: 1.8, armorPierce: 0.5 },
+    ],
+  },
 };
 
 function newTowerPaths(type) {
@@ -469,6 +495,7 @@ function describeTier(def) {
   if (def.freeze) parts.push(Math.round(def.freeze*100) + '% chance to fully freeze the target briefly');
   if (def.shatter) parts.push(Math.round(def.shatter*100) + '% bonus dmg vs slowed enemies');
   if (def.novaSlow) parts.push('hits pulse ' + Math.round(def.novaSlow*100) + '% slow to nearby enemies');
+  if (def.armorPierce) parts.push('ignores ' + Math.round(def.armorPierce*100) + '% of target armor');
   return parts.join(', ');
 }
 
@@ -491,7 +518,7 @@ function canLevelPath(t, key) {
 function selectMode(m) {
   if (gold < TOWER_DEFS[m].cost) return;
   mode = (mode === m) ? null : m;
-  ['arrow','laser','inferno','frost'].forEach(t => {
+  ['arrow','laser','inferno','frost','sniper'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.toggle('selected', t === mode);
   });
@@ -501,7 +528,7 @@ function selectMode(m) {
 
 function clearMode() {
   mode = null;
-  ['arrow','laser','inferno','frost'].forEach(t => {
+  ['arrow','laser','inferno','frost','sniper'].forEach(t => {
     const b = document.getElementById(t+'-btn');
     if (b) b.classList.remove('selected');
   });
@@ -998,8 +1025,8 @@ function killEnemy(e) {
   if (h) hatch(e, h.types, h.radius, h.color);
 }
 
-function applyDamage(e, dmg) {
-  if (e.armor) dmg *= (1 - e.armor);
+function applyDamage(e, dmg, armorPierce) {
+  if (e.armor) dmg *= (1 - e.armor * (1 - (armorPierce || 0)));
   if (e.shield > 0) {
     const absorb = Math.min(e.shield, dmg);
     e.shield -= absorb;
@@ -1128,11 +1155,18 @@ function tick() {
       if (t.cooldown > 0) continue;
       const c = cellCenter(t.gx, t.gy);
       const canHitAir = canTargetAir(t);
-      let best = null, bestIdx = -1;
+      const isSniper = t.def.type === 'sniper';
+      let best = null, bestIdx = -1, bestHp = -1;
       for (const e of enemies) {
         if (e.dead || e.hp <= 0) continue;
         if (e.flying && !canHitAir) continue;
-        if (dist(c.x,c.y,e.x,e.y) <= stats.range*CELL && e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
+        if (dist(c.x,c.y,e.x,e.y) > stats.range*CELL) continue;
+        // Every other tower targets whichever enemy is furthest along the path. The
+        // Sniper instead always picks off the toughest enemy in range (highest current
+        // HP), so it naturally focuses bosses/armored units while other towers handle
+        // the rest of the wave.
+        if (isSniper) { if (e.hp > bestHp) { best = e; bestHp = e.hp; } }
+        else if (e.pathIdx > bestIdx) { best = e; bestIdx = e.pathIdx; }
       }
       if (best) {
         t.cooldown = stats.rate;
@@ -1144,7 +1178,7 @@ function tick() {
           let overcharge = false;
           if (stats.overcharge && Math.random() < stats.overcharge) { dmg *= stats.overchargeMult; overcharge = true; }
           if (stats.shatter && best.slowMult !== undefined && best.slowMult < 1) dmg *= (1 + stats.shatter);
-          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, crit, overcharge });
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, armorPierce: stats.armorPierce, crit, overcharge });
         }
       }
     } else {
@@ -1206,7 +1240,7 @@ function tick() {
     const d = dist(b.x,b.y,tx,ty);
     if (d < b.speed+2) {
       b.done = true;
-      applyDamage(b.target, b.dmg);
+      applyDamage(b.target, b.dmg, b.armorPierce);
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
       if (b.crit || b.overcharge) {
         popups.push({ x: tx, y: ty-8, text: Math.round(b.dmg)+'!', color: '#fff060', vy: -0.5, life: 30 });
@@ -1493,7 +1527,7 @@ function draw() {
     ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)';
     ctx.fill();
     ctx.strokeStyle = canPlace
-      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : mode==='frost' ? 'rgba(80,200,255,0.6)' : 'rgba(255,255,255,0.5)')
+      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : mode==='frost' ? 'rgba(80,200,255,0.6)' : mode==='sniper' ? 'rgba(220,220,235,0.7)' : 'rgba(255,255,255,0.5)')
       : 'rgba(255,80,80,0.5)';
     ctx.lineWidth = 1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
   }
