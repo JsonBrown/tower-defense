@@ -284,12 +284,35 @@ const PATH_KEYS = {
   sniper:  ['power', 'speed', 'utility'],
 };
 
+// Each tower names and flavors its own paths (rather than sharing generic
+// Power/Speed/Utility labels) even though the underlying path keys — and the
+// mechanics attached to each tier in PATH_DEFS — are still shared plumbing.
 const PATH_META = {
-  power:   { icon: '💪', name: 'Power' },
-  speed:   { icon: '⚡', name: 'Speed' },
-  heat:    { icon: '🥶', name: 'Heat' },
-  chill:   { icon: '❄️', name: 'Chill' },
-  utility: { icon: '🎯', name: 'Utility' },
+  arrow: {
+    power:   { icon: '🗡️', name: 'Broadhead Tips' },
+    speed:   { icon: '🤠', name: 'Quickdraw' },
+    utility: { icon: '🦅', name: 'Eagle Eye' },
+  },
+  laser: {
+    power:   { icon: '🔆', name: 'Amplified Beam' },
+    speed:   { icon: '⚙️', name: 'Overclock' },
+    utility: { icon: '🔍', name: 'Beam Optics' },
+  },
+  inferno: {
+    power:   { icon: '💥', name: 'Napalm Mixture' },
+    heat:    { icon: '🌡️', name: 'Sustained Burn' },
+    utility: { icon: '🌬️', name: 'Wildfire Spread' },
+  },
+  frost: {
+    power:   { icon: '🥶', name: 'Absolute Zero' },
+    chill:   { icon: '❄️', name: 'Deep Chill' },
+    utility: { icon: '🌨️', name: 'Permafrost Field' },
+  },
+  sniper: {
+    power:   { icon: '🎖️', name: 'Match-Grade Rounds' },
+    speed:   { icon: '🔄', name: 'Rapid Reload' },
+    utility: { icon: '🔭', name: 'Spotter Scope' },
+  },
 };
 
 const PATH_DEFS = {
@@ -699,7 +722,7 @@ function updateCtxPaths() {
   const keys = PATH_KEYS[type];
   document.querySelectorAll('.ctx-path').forEach((container, i) => {
     const key = keys[i];
-    const meta = PATH_META[key];
+    const meta = PATH_META[type][key];
     const level = ctxTower.paths[key];
     const label = container.querySelector('.ctx-path-label');
     const btn = container.querySelector('.ctx-path-btn');
@@ -760,7 +783,7 @@ function renderUpgradeTree() {
   const container = document.getElementById('upgrade-tree-paths');
   container.innerHTML = '';
   keys.forEach(key => {
-    const meta = PATH_META[key];
+    const meta = PATH_META[type][key];
     const level = ctxTower.paths[key];
     const pathDiv = document.createElement('div');
     pathDiv.className = 'ut-path';
@@ -806,7 +829,7 @@ function ctxPathUpgrade(slot) {
   ctxTower.invested += next.cost;
   ctxTower.paths[key]++;
   updateUI();
-  showMsg(ctxTower.def.icon + ' ' + PATH_META[key].name + ' Lv' + ctxTower.paths[key] + '!', 1200);
+  showMsg(ctxTower.def.icon + ' ' + PATH_META[ctxTower.def.type][key].name + ' Lv' + ctxTower.paths[key] + '!', 1200);
   updateCtxPaths();
   sfxUpgrade();
 }
