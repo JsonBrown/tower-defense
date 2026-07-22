@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1a1a2e; overflow: hidden; cursor: default; }
-#ui { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
-.stat { font-size: 12px; color: #aaa; }
-.stat span { color: #fff; font-weight: 500; }
+body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: default; }
+#ui { position: fixed; top: 0; left: 0; right: 0; z-index: 600; display: flex; align-items: center; justify-content: flex-end; gap: 22px; padding: 10px 18px; background: #16213e; border-bottom: 1px solid #0f3460; flex-wrap: wrap; }
+.stat { font-size: 22px; color: #cfd8e6; font-family: sans-serif; }
+.stat span { color: #fff; font-weight: 700; font-size: 26px; }
 #ui button, #tower-menu button, #ability-menu button, #action-menu button, #tower-context-menu button, #start-panel button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
 #ui button:hover, #tower-menu button:hover, #ability-menu button:hover, #action-menu button:hover, #tower-context-menu button:hover, #start-panel button:hover { background: #ffffff; border-color: #000; }
 .tower-btn { border: 2px solid #aaa !important; }
@@ -89,10 +89,9 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
   <div class="stat">❤️ <span id="lives">20</span></div>
   <div class="stat">💰 <span id="gold">150</span></div>
   <div class="stat">🌊 Wave <span id="wave">0</span></div>
-  <div class="stat">☠️ <span id="score">0</span></div>
 </div>
 <canvas id="c"></canvas>
-<div id="msg" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;"></div>
+<div id="msg" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;z-index:600;"></div>
 <div id="title-screen">
   <div id="title-name">🏰 Tower Defense</div>
   <div id="title-tagline">Defend the castle. Upgrade relentlessly. Survive the swarm.</div>
@@ -191,24 +190,29 @@ const ctx = canvas.getContext('2d');
 const cursorEl = document.getElementById('cursor-tower');
 const COLS = 22;
 const ROWS = 14;
-// Reserve room on every side for the fixed-position chrome around the canvas so a
-// maxed-out zoom never renders underneath (and gets stolen clicks from) the Towers
-// panel, stat bar, or the Auto/Speed/Start Wave row.
+// Only the left side is reserved, for the Towers panel -- it needs its own clear
+// column since it's clickable. The stat bar overlapping the top of the map is fine
+// (it floats on top via z-index and isn't interactive), so no top/right reservation.
 const RESERVED_LEFT = 145;   // Towers panel width
-const RESERVED_RIGHT = 20;
-const RESERVED_TOP = 36;     // stat bar
-const RESERVED_BOTTOM = 50;  // Auto/Speed/Start Wave row
-const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT - RESERVED_RIGHT);
-const availH = Math.max(ROWS, window.innerHeight - RESERVED_TOP - RESERVED_BOTTOM);
-const CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
+const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT);
+// Width, not height, is maximized: most windows are wider relative to the 22x14 grid
+// than they are tall, so capping by height as well left large unused side margins.
+// Filling the width instead means the map can now be taller than one screen -- the
+// page scrolls for the rest, with the stat bar/side panels pinned in place.
+const CELL = Math.floor(availW / COLS);
 const GAME_W = COLS * CELL;
 const GAME_H = ROWS * CELL;
+// Enemy radii and icon font sizes below were tuned at this cell size; scale them by
+// how far CELL has grown past it so sprites keep filling the cell at any zoom level.
+const BASE_CELL = 28;
+const SPRITE_SCALE = CELL / BASE_CELL;
 
 canvas.width = GAME_W;
 canvas.height = GAME_H;
 canvas.style.display = 'block';
 canvas.style.margin = '0';
 canvas.style.marginLeft = (RESERVED_LEFT + Math.max(0, (availW - GAME_W) / 2)) + 'px';
+canvas.style.marginBottom = '20px';
 
 // All sound is synthesized with WebAudio (no asset files). The context is created lazily
 // since browsers require it to happen inside a user gesture (a click already triggers it).
@@ -1039,7 +1043,6 @@ function updateUI() {
   document.getElementById('lives').textContent = lives;
   document.getElementById('gold').textContent = gold;
   document.getElementById('wave').textContent = wave;
-  document.getElementById('score').textContent = score;
   document.getElementById('start-btn').disabled = waveActive;
   updateTowerButtons();
   updateCtxPaths();
@@ -1416,13 +1419,14 @@ function draw() {
   }
 
   if (path.length) {
+    const endpointFont = Math.round(12*SPRITE_SCALE);
     const s = path[0];
     ctx.fillStyle = '#2a5a2a'; ctx.fillRect(s.x*CELL, s.y*CELL, CELL-1, CELL-1);
-    ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign='center';
-    ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+4);
+    ctx.font = endpointFont+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+Math.round(endpointFont*0.33));
     const e2 = path[path.length-1];
     ctx.fillStyle='#5a2a2a'; ctx.fillRect(e2.x*CELL, e2.y*CELL, CELL-1, CELL-1);
-    ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+4);
+    ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+Math.round(endpointFont*0.33));
   }
 
   // Draw inferno beams behind towers
@@ -1445,8 +1449,9 @@ function draw() {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(t.def.icon, cx, cy+5);
+    const towerFont = Math.round(13*SPRITE_SCALE);
+    ctx.font = towerFont+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(t.def.icon, cx, cy+Math.round(towerFont*0.38));
     if (!t.def.canTargetAir && canTargetAir(t)) {
       ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
@@ -1494,7 +1499,7 @@ function draw() {
   }
 
   for (const e of enemies) {
-    const r=e.size, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
+    const r=e.size*SPRITE_SCALE, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
     const fireAmt = e.onFire ? Math.min(e.onFire/180, 1) : 0;
     const barY = e.flying ? e.y-r-10 : e.y-r-6;
 
