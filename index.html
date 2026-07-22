@@ -202,6 +202,10 @@ const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT);
 const CELL = Math.floor(availW / COLS);
 const GAME_W = COLS * CELL;
 const GAME_H = ROWS * CELL;
+// Enemy radii and icon font sizes below were tuned at this cell size; scale them by
+// how far CELL has grown past it so sprites keep filling the cell at any zoom level.
+const BASE_CELL = 28;
+const SPRITE_SCALE = CELL / BASE_CELL;
 
 canvas.width = GAME_W;
 canvas.height = GAME_H;
@@ -1415,13 +1419,14 @@ function draw() {
   }
 
   if (path.length) {
+    const endpointFont = Math.round(12*SPRITE_SCALE);
     const s = path[0];
     ctx.fillStyle = '#2a5a2a'; ctx.fillRect(s.x*CELL, s.y*CELL, CELL-1, CELL-1);
-    ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign='center';
-    ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+4);
+    ctx.font = endpointFont+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign='center';
+    ctx.fillStyle='#7ec850'; ctx.fillText('▶', s.x*CELL+CELL/2, s.y*CELL+CELL/2+Math.round(endpointFont*0.33));
     const e2 = path[path.length-1];
     ctx.fillStyle='#5a2a2a'; ctx.fillRect(e2.x*CELL, e2.y*CELL, CELL-1, CELL-1);
-    ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+4);
+    ctx.fillText('🏰', e2.x*CELL+CELL/2, e2.y*CELL+CELL/2+Math.round(endpointFont*0.33));
   }
 
   // Draw inferno beams behind towers
@@ -1444,8 +1449,9 @@ function draw() {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(t.def.icon, cx, cy+5);
+    const towerFont = Math.round(13*SPRITE_SCALE);
+    ctx.font = towerFont+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(t.def.icon, cx, cy+Math.round(towerFont*0.38));
     if (!t.def.canTargetAir && canTargetAir(t)) {
       ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
@@ -1493,7 +1499,7 @@ function draw() {
   }
 
   for (const e of enemies) {
-    const r=e.size, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
+    const r=e.size*SPRITE_SCALE, hpPct=e.hp/e.maxHp, pulse=0.85+0.15*Math.sin(e.t*0.15);
     const fireAmt = e.onFire ? Math.min(e.onFire/180, 1) : 0;
     const barY = e.flying ? e.y-r-10 : e.y-r-6;
 
