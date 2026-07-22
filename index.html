@@ -549,13 +549,20 @@ let hoveredAbilityTower = null;
 let abilityTipShown = false;
 const WAVE_TIPS = {
   3: '🐴 Trojan horse incoming — kill it and the 3 units it hides will scatter!',
-  4: '✈️ Air units and 🏃 Sprinters incoming!',
+  4: '🏃 Sprinters incoming!',
   5: '🛡️ Shielded enemies incoming — they resist damage until the shield breaks!',
   6: '🟢 Oozes incoming — they split into smaller enemies on death!',
   7: '💉 Medics incoming — they heal nearby enemies, so target them first!',
-  10: '💀 Boss wave! A boss appears every 5 waves, cycling Classic / Armored / Swarm variants.',
+};
+// These warn a wave early (near the tail of the prior wave) since they take build-up
+// to counter — an anti-air upgrade, or a strong/varied roster for a boss fight —
+// rather than just an in-the-moment targeting call.
+const EARLY_WAVE_TIPS = {
+  4: '✈️ Air units next wave — make sure a tower can target air!',
+  10: '💀 Boss next wave! A boss appears every 5 waves, cycling Classic / Armored / Swarm variants.',
 };
 let shownWaveTips = new Set();
+let shownEarlyTips = new Set();
 function sameTowerList(a, b) {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -1240,6 +1247,14 @@ function tick() {
   bullets = bullets.filter(b => !b.done);
   enemies = enemies.filter(e => !e.dead && e.hp>0);
 
+  if (waveActive && spawnQueue.length===0 && enemies.length<=3) {
+    const nextTip = EARLY_WAVE_TIPS[wave+1];
+    if (nextTip && !shownEarlyTips.has(wave+1)) {
+      shownEarlyTips.add(wave+1);
+      showMsg(nextTip, 4000);
+    }
+  }
+
   if (waveActive && spawnQueue.length===0 && enemies.length===0) {
     waveActive = false;
     const bonus = Math.round((45+wave*5) * DIFFICULTIES[difficulty].goldMult);
@@ -1349,6 +1364,7 @@ function beginRun() {
   hoveredAbilityTower = null;
   abilityTipShown = false;
   shownWaveTips = new Set();
+  shownEarlyTips = new Set();
   clearMode();
   hideTowerContext();
   generatePath(selectedMap);
