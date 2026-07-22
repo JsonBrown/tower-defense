@@ -194,16 +194,26 @@ body { background: #1a1a2e; overflow: hidden; cursor: default; }
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const cursorEl = document.getElementById('cursor-tower');
-const CELL = 40;
 const COLS = 22;
 const ROWS = 14;
+// Reserve room on every side for the fixed-position chrome around the canvas so a
+// maxed-out zoom never renders underneath (and gets stolen clicks from) the Towers
+// panel, stat bar, or the Auto/Speed/Start Wave row.
+const RESERVED_LEFT = 180;   // Towers panel width when expanded
+const RESERVED_RIGHT = 20;
+const RESERVED_TOP = 36;     // stat bar
+const RESERVED_BOTTOM = 50;  // Auto/Speed/Start Wave row
+const availW = Math.max(COLS, window.innerWidth - RESERVED_LEFT - RESERVED_RIGHT);
+const availH = Math.max(ROWS, window.innerHeight - RESERVED_TOP - RESERVED_BOTTOM);
+const CELL = Math.floor(Math.min(availW / COLS, availH / ROWS));
 const GAME_W = COLS * CELL;
 const GAME_H = ROWS * CELL;
 
 canvas.width = GAME_W;
 canvas.height = GAME_H;
 canvas.style.display = 'block';
-canvas.style.margin = '0 auto';
+canvas.style.margin = '0';
+canvas.style.marginLeft = (RESERVED_LEFT + Math.max(0, (availW - GAME_W) / 2)) + 'px';
 
 // All sound is synthesized with WebAudio (no asset files). The context is created lazily
 // since browsers require it to happen inside a user gesture (a click already triggers it).
