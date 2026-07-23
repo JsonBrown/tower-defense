@@ -320,120 +320,125 @@ const PATH_META = {
 // shows up from the middle tiers onward and keeps scaling alongside the base stat,
 // so a path reads as its own thing well before it's maxed out — not just "+X%" five
 // times with a twist at the very end.
+// Tier costs are a fixed multiple of the tower's own placement cost, back-loaded
+// so tier 5 is the real money sink: [0.9, 1.6, 2.8, 4.5, 8.0]x. Maxing a single
+// path costs ~17.8x the tower's price; only one path per tower can ever get there
+// (see canLevelPath/CROSSPATH_CAP), so tier 5 is deliberately a big spike rather
+// than a linear continuation of tiers 1-4.
 const PATH_DEFS = {
   arrow: {
     power: [
-      { cost: 45,  dmgMult: 1.20 },
-      { cost: 75,  dmgMult: 1.40 },
-      { cost: 135, dmgMult: 1.55, crit: 0.12, critMult: 1.8 },
-      { cost: 210, dmgMult: 1.75, crit: 0.20, critMult: 2.0 },
-      { cost: 300, dmgMult: 2.00, crit: 0.30, critMult: 2.5 },
+      { cost: 45,  dmgMult: 1.15 },
+      { cost: 80,  dmgMult: 1.32 },
+      { cost: 140, dmgMult: 1.55, crit: 0.15, critMult: 1.8 },
+      { cost: 225, dmgMult: 1.85, crit: 0.25, critMult: 2.1 },
+      { cost: 400, dmgMult: 2.70, crit: 0.42, critMult: 3.0, rupture: 0.5 },
     ],
     speed: [
-      { cost: 45,  rateMult: 0.90 },
-      { cost: 75,  rateMult: 0.80 },
-      { cost: 135, rateMult: 0.72, quickdraw: 0.15 },
-      { cost: 210, rateMult: 0.64, quickdraw: 0.30 },
-      { cost: 300, rateMult: 0.55, quickdraw: 0.50 },
+      { cost: 45,  rateMult: 0.92 },
+      { cost: 80,  rateMult: 0.82 },
+      { cost: 140, rateMult: 0.70, quickdraw: 0.20 },
+      { cost: 225, rateMult: 0.58, quickdraw: 0.38 },
+      { cost: 400, rateMult: 0.40, quickdraw: 0.80 },
     ],
     utility: [
-      { cost: 40,  rangeAdd: 0.5 },
-      { cost: 70,  rangeAdd: 0.75, unlockAA: true },
-      { cost: 120, rangeAdd: 1.0,  pierce: 1 },
-      { cost: 180, rangeAdd: 1.25 },
-      { cost: 270, rangeAdd: 1.5 },
+      { cost: 45,  rangeAdd: 0.4 },
+      { cost: 80,  rangeAdd: 0.7, unlockAA: true },
+      { cost: 140, rangeAdd: 1.0,  pierce: 1 },
+      { cost: 225, rangeAdd: 1.35 },
+      { cost: 400, rangeAdd: 2.1 },
     ],
   },
   laser: {
     power: [
-      { cost: 60,  dmgMult: 1.20 },
-      { cost: 100, dmgMult: 1.38, overcharge: 0.10, overchargeMult: 1.6 },
-      { cost: 165, dmgMult: 1.58, overcharge: 0.16, overchargeMult: 1.8 },
-      { cost: 255, dmgMult: 1.82, overcharge: 0.22, overchargeMult: 2.0 },
-      { cost: 360, dmgMult: 2.10, overcharge: 0.30, overchargeMult: 2.4 },
+      { cost: 70,  dmgMult: 1.15 },
+      { cost: 130, dmgMult: 1.30 },
+      { cost: 225, dmgMult: 1.50, focusPerStack: 0.08, focusMax: 4 },
+      { cost: 360, dmgMult: 1.75, focusPerStack: 0.13, focusMax: 5 },
+      { cost: 640, dmgMult: 2.30, focusPerStack: 0.20, focusMax: 7 },
     ],
     speed: [
-      { cost: 60,  rateMult: 0.88 },
-      { cost: 100, rateMult: 0.76 },
-      { cost: 165, rateMult: 0.66, twinBolt: 0.35 },
-      { cost: 255, rateMult: 0.54, twinBolt: 0.55 },
-      { cost: 360, rateMult: 0.42, twinBolt: 0.75 },
+      { cost: 70,  rateMult: 0.90 },
+      { cost: 130, rateMult: 0.78 },
+      { cost: 225, rateMult: 0.64, twinBolt: 0.35 },
+      { cost: 360, rateMult: 0.50, twinBolt: 0.60 },
+      { cost: 640, rateMult: 0.32, twinBolt: 1.0 },
     ],
     utility: [
-      { cost: 55,  rangeAdd: 0.4 },
-      { cost: 85,  rangeAdd: 0.6, unlockAA: true },
-      { cost: 145, rangeAdd: 0.8, chain: 0.25 },
-      { cost: 225, rangeAdd: 1.0, chain: 0.4 },
-      { cost: 315, rangeAdd: 1.2, chain: 0.6 },
+      { cost: 70,  rangeAdd: 0.35 },
+      { cost: 130, rangeAdd: 0.55, unlockAA: true },
+      { cost: 225, rangeAdd: 0.8, chain: 0.28 },
+      { cost: 360, rangeAdd: 1.05, chain: 0.48 },
+      { cost: 640, rangeAdd: 1.7, chain: 0.85 },
     ],
   },
   inferno: {
     power: [
-      { cost: 90,  dmgMult: 1.2 },
-      { cost: 150, dmgMult: 1.45 },
-      { cost: 240, dmgMult: 1.75, flashIgnite: 0.15 },
-      { cost: 345, dmgMult: 2.1,  flashIgnite: 0.30 },
-      { cost: 480, dmgMult: 2.5,  flashIgnite: 0.50 },
+      { cost: 135,  dmgMult: 1.15 },
+      { cost: 240,  dmgMult: 1.35 },
+      { cost: 420,  dmgMult: 1.65, flashIgnite: 0.15 },
+      { cost: 675,  dmgMult: 2.05, flashIgnite: 0.32 },
+      { cost: 1200, dmgMult: 2.80, flashIgnite: 0.55 },
     ],
     heat: [
-      { cost: 90,  heatRate: 1.15 },
-      { cost: 150, heatRate: 1.35 },
-      { cost: 240, heatRate: 1.6, cryo: true },
-      { cost: 345, heatRate: 1.9, afterburn: 0.4 },
-      { cost: 480, heatRate: 2.2, afterburn: 0.7 },
+      { cost: 135,  heatRate: 1.12 },
+      { cost: 240,  heatRate: 1.28 },
+      { cost: 420,  heatRate: 1.55, cryo: true },
+      { cost: 675,  heatRate: 1.95, afterburn: 0.42 },
+      { cost: 1200, heatRate: 2.60, afterburn: 0.85 },
     ],
     utility: [
-      { cost: 75,  rangeAdd: 0.25 },
-      { cost: 130, rangeAdd: 0.5, splash: 0.15 },
-      { cost: 210, rangeAdd: 0.75, splash: 0.25 },
-      { cost: 300, rangeAdd: 1.0, splash: 0.35 },
-      { cost: 420, rangeAdd: 1.25, splash: 0.5 },
+      { cost: 135,  rangeAdd: 0.2 },
+      { cost: 240,  rangeAdd: 0.4, splash: 0.15 },
+      { cost: 420,  rangeAdd: 0.65, splash: 0.28 },
+      { cost: 675,  rangeAdd: 0.95, splash: 0.42 },
+      { cost: 1200, rangeAdd: 1.5, splash: 0.70 },
     ],
   },
   frost: {
     power: [
-      { cost: 50,  dmgMult: 1.20 },
-      { cost: 85,  dmgMult: 1.40, shatter: 0.25 },
-      { cost: 145, dmgMult: 1.65, shatter: 0.45 },
-      { cost: 220, dmgMult: 1.95, shatter: 0.65 },
-      { cost: 320, dmgMult: 2.3,  shatter: 0.90 },
+      { cost: 100, dmgMult: 1.15 },
+      { cost: 175, dmgMult: 1.33, shatter: 0.25 },
+      { cost: 310, dmgMult: 1.58, shatter: 0.48 },
+      { cost: 495, dmgMult: 1.95, shatter: 0.72 },
+      { cost: 880, dmgMult: 2.60, shatter: 1.10 },
     ],
     chill: [
-      { cost: 50,  slowPct: 0.18 },
-      { cost: 85,  slowPct: 0.28 },
-      { cost: 145, slowPct: 0.38, freeze: 0.08 },
-      { cost: 220, slowPct: 0.48, freeze: 0.16, armorShred: 0.3 },
-      { cost: 320, slowPct: 0.58, freeze: 0.25, armorShred: 0.5 },
+      { cost: 100, slowPct: 0.16 },
+      { cost: 175, slowPct: 0.26 },
+      { cost: 310, slowPct: 0.38, freeze: 0.10 },
+      { cost: 495, slowPct: 0.50, freeze: 0.18, armorShred: 0.32 },
+      { cost: 880, slowPct: 0.65, freeze: 0.32, armorShred: 0.60 },
     ],
     utility: [
-      { cost: 45,  rangeAdd: 0.5 },
-      { cost: 75,  rangeAdd: 0.75, unlockAA: true },
-      { cost: 130, rangeAdd: 1.0, novaSlow: 0.10 },
-      { cost: 195, rangeAdd: 1.25, novaSlow: 0.18 },
-      { cost: 290, rangeAdd: 1.5, novaSlow: 0.28 },
+      { cost: 100, rangeAdd: 0.4 },
+      { cost: 175, rangeAdd: 0.7, unlockAA: true },
+      { cost: 310, rangeAdd: 1.0, novaSlow: 0.10 },
+      { cost: 495, rangeAdd: 1.3, novaSlow: 0.18 },
+      { cost: 880, rangeAdd: 2.0, novaSlow: 0.30 },
     ],
   },
   sniper: {
     power: [
-      { cost: 70,  dmgMult: 1.20 },
-      { cost: 120, dmgMult: 1.40, crit: 0.15, critMult: 1.8 },
-      { cost: 200, dmgMult: 1.65, crit: 0.22, critMult: 2.0 },
-      { cost: 310, dmgMult: 1.95, crit: 0.28, critMult: 2.2 },
-      { cost: 450, dmgMult: 2.40, crit: 0.35, critMult: 2.5 },
+      { cost: 160,  dmgMult: 1.15 },
+      { cost: 290,  dmgMult: 1.32, crit: 0.15, critMult: 1.8 },
+      { cost: 505,  dmgMult: 1.58, crit: 0.24, critMult: 2.1 },
+      { cost: 810,  dmgMult: 1.95, crit: 0.32, critMult: 2.4 },
+      { cost: 1440, dmgMult: 2.75, crit: 0.45, critMult: 3.0 },
     ],
     speed: [
-      { cost: 70,  rateMult: 0.85 },
-      { cost: 120, rateMult: 0.72 },
-      { cost: 200, rateMult: 0.60, pierce: 1, pierceMult: 0.5 },
-      { cost: 310, rateMult: 0.50, pierceMult: 0.75 },
-      { cost: 450, rateMult: 0.32, pierceMult: 1.0 },
+      { cost: 160,  rateMult: 0.88 },
+      { cost: 290,  rateMult: 0.76 },
+      { cost: 505,  rateMult: 0.60, pierce: 1, pierceMult: 0.55 },
+      { cost: 810,  rateMult: 0.46, pierceMult: 0.85 },
+      { cost: 1440, rateMult: 0.26, pierceMult: 1.15 },
     ],
     utility: [
-      { cost: 65,  rangeAdd: 0.6 },
-      { cost: 100, rangeAdd: 0.9,  armorPierce: 0.2 },
-      { cost: 170, rangeAdd: 1.2,  armorPierce: 0.35 },
-      { cost: 260, rangeAdd: 1.5,  armorPierce: 0.45 },
-      { cost: 380, rangeAdd: 1.8,  armorPierce: 0.6 },
+      { cost: 160,  rangeAdd: 0.5 },
+      { cost: 290,  rangeAdd: 0.8,  armorPierce: 0.22 },
+      { cost: 505,  rangeAdd: 1.15, armorPierce: 0.38 },
+      { cost: 810,  rangeAdd: 1.5,  armorPierce: 0.52 },
+      { cost: 1440, rangeAdd: 2.2,  armorPierce: 0.80 },
     ],
   },
 };
@@ -517,8 +522,9 @@ function describeTier(def) {
   if (def.chain) parts.push('beam chains ' + Math.round(def.chain * 100) + '% dmg to a 2nd enemy');
   if (def.splash) parts.push('splashes ' + Math.round(def.splash * 100) + '% dmg to nearby enemies');
   if (def.crit) parts.push(Math.round(def.crit * 100) + '% chance to crit for ' + def.critMult + '×');
-  if (def.overcharge) parts.push(Math.round(def.overcharge * 100) + '% chance to overcharge for ' + def.overchargeMult + '×');
   if (def.multishot) parts.push('fires ' + def.multishot + ' shots per attack');
+  if (def.focusPerStack) parts.push('consecutive hits on the same target stack +' + Math.round(def.focusPerStack * 100) + '% dmg, up to ' + def.focusMax + '×');
+  if (def.rupture) parts.push('crits also cause bleeding for ' + Math.round(def.rupture * 100) + '% dmg over ~1s');
   if (def.quickdraw) parts.push(Math.round(def.quickdraw*100) + '% chance to fire an extra quickdraw shot');
   if (def.twinBolt) parts.push('also strikes a 2nd enemy for ' + Math.round(def.twinBolt*100) + '% dmg');
   if (def.cryo) parts.push('chills the target, slowing it up to 40%');
@@ -955,7 +961,7 @@ canvas.addEventListener('click', e => {
     const def = TOWER_DEFS[mode];
     if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
     gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost, activeCooldown: 0 });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost, activeCooldown: 0, focusTarget: null, focusStacks: 0 });
     updateUI();
     clearMode();
     sfxPlace();
@@ -1215,6 +1221,12 @@ function tick() {
       }
       if (best) {
         t.cooldown = stats.rate;
+        // Focus (Laser): consecutive shots landing on the same target ramp up a
+        // stacking damage bonus; switching targets resets the stack count.
+        if (stats.focusPerStack) {
+          t.focusStacks = (t.focusTarget === best) ? Math.min(t.focusStacks + 1, stats.focusMax) : 1;
+          t.focusTarget = best;
+        }
         // Quickdraw (Arrow) is a chance at ONE bonus shot per attack, separate from
         // a guaranteed multishot count (no tower currently has both).
         let shots = stats.multishot || 1;
@@ -1223,10 +1235,9 @@ function tick() {
           let dmg = stats.damage;
           let crit = false;
           if (stats.crit && Math.random() < stats.crit) { dmg *= stats.critMult; crit = true; }
-          let overcharge = false;
-          if (stats.overcharge && Math.random() < stats.overcharge) { dmg *= stats.overchargeMult; overcharge = true; }
+          if (stats.focusPerStack) dmg *= 1 + stats.focusPerStack * (t.focusStacks - 1);
           if (stats.shatter && best.slowMult !== undefined && best.slowMult < 1) dmg *= (1 + stats.shatter);
-          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit || overcharge ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, pierceMult: stats.pierceMult, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, armorPierce: stats.armorPierce, armorShred: stats.armorShred, crit, overcharge });
+          bullets.push({ x: c.x, y: c.y, target: best, speed: t.def.speed, dmg, color: crit ? '#fff060' : t.def.pcolor, size: t.def.type==='laser'?2:3, type: t.def.type, pierce: stats.pierce, pierceMult: stats.pierceMult, chain: stats.chain, slowPct: stats.slowPct, freeze: stats.freeze, novaSlow: stats.novaSlow, armorPierce: stats.armorPierce, armorShred: stats.armorShred, rupture: stats.rupture, crit });
         }
         // Twin Bolt (Laser): also strikes a 2nd, different enemy in range for partial dmg.
         if (stats.twinBolt) {
@@ -1310,8 +1321,14 @@ function tick() {
       b.done = true;
       applyDamage(b.target, b.dmg, b.armorPierce);
       for (let i=0;i<4;i++) particles.push({ x:tx, y:ty, vx:(Math.random()-.5)*3, vy:(Math.random()-.5)*3, life:15, color:b.color });
-      if (b.crit || b.overcharge) {
+      if (b.crit) {
         popups.push({ x: tx, y: ty-8, text: Math.round(b.dmg)+'!', color: '#fff060', vy: -0.5, life: 30 });
+      }
+      // Rupture (Arrow capstone): crits also leave a short bleed, reusing the
+      // generic burnDps/burnTicks fields the tick loop already applies for Inferno's afterburn.
+      if (b.rupture && b.crit && !b.target.dead) {
+        b.target.burnDps = Math.max(b.target.burnDps || 0, b.dmg * b.rupture / 60);
+        b.target.burnTicks = Math.max(b.target.burnTicks || 0, 60);
       }
       // Frost tower: slows the target on hit, with a small chance to fully freeze it
       if (b.slowPct && !b.target.dead) {
