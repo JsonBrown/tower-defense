@@ -966,6 +966,7 @@ function ctxPathUpgrade(slot) {
     applied++;
   }
   if (applied === 0) return;
+  ctxTower.pathTier[key] = card.rarity;
   hand = hand.filter(c => c.id !== card.id);
   updateUI();
   showMsg(ctxTower.def.icon + ' ' + PATH_META[ctxTower.def.type][key].name + ' → Lv' + ctxTower.paths[key] + '!', 1200);
@@ -1082,7 +1083,7 @@ canvas.addEventListener('click', e => {
     if (!card || card.kind !== 'tower') { clearMode(); return; }
     if (ps.has(gx+','+gy) || existing) return;
     const def = TOWER_DEFS[card.type];
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(card.type), rarity: card.rarity, statMult: RARITY[card.rarity].statMult, activeCooldown: 0, focusTarget: null, focusStacks: 0 });
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(card.type), pathTier: {}, rarity: card.rarity, statMult: RARITY[card.rarity].statMult, activeCooldown: 0, focusTarget: null, focusStacks: 0 });
     hand = hand.filter(c => c.id !== card.id);
     updateUI();
     clearMode();
@@ -1860,10 +1861,10 @@ function draw() {
     // Upgrade badges: each leveled path gets its own icon (from PATH_META) plus a
     // level-number chip, lined up along the bottom edge (slot = the path's fixed index
     // in PATH_KEYS, so a given path always sits in the same spot). Badge color is the
-    // tower's rarity color (not a per-path color) so it reads as "this tower's rarity",
-    // consistent with the rarity ring/context-menu label rather than path identity.
+    // rarity of the modifier CARD that path was last raised with (t.pathTier, set in
+    // ctxPathUpgrade) -- not the tower's own drafted rarity -- so it reflects how strong
+    // that particular upgrade was.
     const keys = PATH_KEYS[t.def.type];
-    const rarityColor = (RARITY[t.rarity] || RARITY.common).color;
     const badgeR = Math.max(4, CELL * 0.13);
     const slotX = [t.gx*CELL + CELL*0.2, t.gx*CELL + CELL*0.5, t.gx*CELL + CELL*0.8];
     const badgeY = t.gy*CELL + CELL - badgeR - 1;
@@ -1871,16 +1872,17 @@ function draw() {
       const level = t.paths[key];
       if (level <= 0) return;
       const meta = PATH_META[t.def.type][key];
+      const tierColor = (RARITY[t.pathTier && t.pathTier[key]] || RARITY.common).color;
       const px = slotX[i], py = badgeY;
       ctx.beginPath(); ctx.arc(px, py, badgeR, 0, Math.PI*2);
       ctx.fillStyle = '#ffffff'; ctx.fill();
-      ctx.strokeStyle = rarityColor; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = tierColor; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.font = Math.round(badgeR*1.3)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(meta.icon, px, py + badgeR*0.4);
       const nx = px + badgeR*0.7, ny = py + badgeR*0.7, nr = Math.max(3.5, badgeR*0.55);
       ctx.beginPath(); ctx.arc(nx, ny, nr, 0, Math.PI*2);
-      ctx.fillStyle = rarityColor; ctx.fill();
+      ctx.fillStyle = tierColor; ctx.fill();
       ctx.strokeStyle = '#0a0a14'; ctx.lineWidth = 1; ctx.stroke();
       ctx.font = 'bold ' + Math.round(nr*1.3) + 'px sans-serif';
       ctx.fillStyle = '#0a0a14';
