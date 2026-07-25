@@ -1237,26 +1237,16 @@ function startWave() {
 // Card draft: offered between waves (and once before wave 1). draftPickCount is how
 // many of draftOptions the player must choose; >1 needs an explicit Confirm click,
 // ===1 resolves immediately on click (matching the old single-choice UX).
+// Always shown and resolved manually -- even with Auto Wave on, since the pick is a
+// meaningful decision the player should make, not one worth quietly automating away.
 function openDraft(n, pickCount, forceTowerOnly) {
   draftOptions = buildDraftOptions(n, forceTowerOnly);
   draftPickCount = pickCount;
   draftSelected = [];
   hideTowerContext();
   updateUI();
-  if (autoWave) { autoResolveDraft(); return; }
   renderDraft();
   document.getElementById('draft-modal').style.display = 'flex';
-}
-
-function bestDraftIndices(options, count) {
-  return options
-    .map((c, i) => i)
-    .sort((a, b) => RARITY_ORDER.indexOf(options[b].rarity) - RARITY_ORDER.indexOf(options[a].rarity))
-    .slice(0, count);
-}
-
-function autoResolveDraft() {
-  finalizeDraft(bestDraftIndices(draftOptions, draftPickCount));
 }
 
 function toggleDraftCard(i) {
