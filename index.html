@@ -85,6 +85,7 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 #ui button:disabled, #tower-menu button:disabled, #ability-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
 #ctx-tower-rarity { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 #tower-menu button, #tower-menu #hand-cards button { width: 100%; text-align: left; }
+#hand-cards button { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #draft-modal { display: none; position: fixed; inset: 0; z-index: 900; align-items: center; justify-content: center; background: rgba(0,0,0,0.72); }
 #draft-content { background: #16213e; border: 1px solid #0f3460; border-radius: 10px; padding: 20px 24px; max-width: 90vw; font-family: sans-serif; color: #fff; text-align: center; }
 #draft-header { margin-bottom: 10px; }
@@ -99,6 +100,11 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 .draft-card-rarity { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .draft-card-name { font-size: 12px; font-weight: 600; color: #fff; }
 .draft-card-desc { font-size: 10px; color: #9fb0c8; line-height: 1.3; }
+.card-kind-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.card-kind-tag.kind-tower { background: rgba(255,255,255,0.14); color: #cfd8e6; }
+.card-kind-tag.kind-modifier { background: rgba(240,192,64,0.18); color: #f0c040; border: 1px solid rgba(240,192,64,0.5); }
+.draft-card-toprow { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.hand-card.modifier-card { border-style: dashed !important; }
 </style>
 </head>
 <body>
@@ -1300,10 +1306,16 @@ function renderDraft() {
     el.style.setProperty('--card-color', rarity.color);
     const icon = document.createElement('div');
     icon.className = 'draft-card-icon';
+    const kindTag = document.createElement('div');
+    kindTag.className = 'card-kind-tag ' + (card.kind === 'tower' ? 'kind-tower' : 'kind-modifier');
+    kindTag.textContent = card.kind === 'tower' ? 'Tower' : '⬆ Upgrade';
     const rarityLbl = document.createElement('div');
     rarityLbl.className = 'draft-card-rarity';
     rarityLbl.style.color = rarity.color;
     rarityLbl.textContent = rarity.label;
+    const toprow = document.createElement('div');
+    toprow.className = 'draft-card-toprow';
+    toprow.appendChild(rarityLbl); toprow.appendChild(kindTag);
     const name = document.createElement('div');
     name.className = 'draft-card-name';
     const desc = document.createElement('div');
@@ -1319,7 +1331,7 @@ function renderDraft() {
       name.textContent = capitalize(card.type) + ' · ' + meta.name;
       desc.textContent = 'Sets a placed ' + capitalize(card.type) + " tower's " + meta.name + ' path to Lv' + card.targetLevel + '.';
     }
-    el.appendChild(icon); el.appendChild(rarityLbl); el.appendChild(name); el.appendChild(desc);
+    el.appendChild(icon); el.appendChild(toprow); el.appendChild(name); el.appendChild(desc);
     el.onclick = () => toggleDraftCard(i);
     wireButtonHoverColor(el);
     container.appendChild(el);
@@ -1360,20 +1372,29 @@ function rebuildHandButtons() {
     const btn = document.createElement('button');
     btn.dataset.cardId = card.id;
     btn.style.setProperty('--card-color', rarity.color);
+    const label = document.createElement('span');
+    const tag = document.createElement('span');
+    tag.className = 'card-kind-tag';
     if (card.kind === 'tower') {
       const def = TOWER_DEFS[card.type];
       btn.className = 'tower-btn hand-card';
       if (mode === card.id) btn.classList.add('selected');
-      btn.textContent = def.icon + ' ' + capitalize(card.type) + ' · ' + rarity.label;
+      label.textContent = def.icon + ' ' + capitalize(card.type) + ' · ' + rarity.label;
+      tag.classList.add('kind-tower');
+      tag.textContent = 'Tower';
       if (TOWER_TIPS[card.type]) btn.title = TOWER_TIPS[card.type];
       btn.onclick = () => selectHandCard(card.id);
     } else {
       const meta = PATH_META[card.type][card.pathKey];
       btn.className = 'tower-btn hand-card modifier-card';
       btn.disabled = true;
-      btn.textContent = meta.icon + ' ' + meta.name + ' →Lv' + card.targetLevel + ' · ' + rarity.label;
+      label.textContent = meta.icon + ' ' + meta.name + ' →Lv' + card.targetLevel + ' · ' + rarity.label;
+      tag.classList.add('kind-modifier');
+      tag.textContent = '⬆ Upgrade';
       btn.title = 'Open a placed ' + capitalize(card.type) + " tower's menu to use this on its " + meta.name + ' path.';
     }
+    btn.appendChild(label);
+    btn.appendChild(tag);
     wireButtonHoverColor(btn);
     container.appendChild(btn);
   });
