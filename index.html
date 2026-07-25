@@ -1884,6 +1884,19 @@ function draw() {
     }
   }
 
+  // Selected-tower range: shown for whichever placed tower's context menu is open,
+  // using its current effective range (towerStats), so range-boosting upgrades reflect
+  // immediately rather than showing the tower's unmodified base range.
+  if (ctxTower) {
+    const stats = towerStats(ctxTower);
+    const c = cellCenter(ctxTower.gx, ctxTower.gy);
+    ctx.beginPath(); ctx.arc(c.x, c.y, stats.range*CELL, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(240,192,64,0.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(240,192,64,0.75)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
   // Range preview
   if (placingCard && hoverGX >= 0 && hoverGY >= 0) {
     const def = TOWER_DEFS[placingCard.type];
