@@ -104,6 +104,10 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 .card-kind-tag.kind-tower { background: rgba(255,255,255,0.14); color: #cfd8e6; }
 .card-kind-tag.kind-modifier { background: rgba(240,192,64,0.18); color: #f0c040; border: 1px solid rgba(240,192,64,0.5); }
 .draft-card-toprow { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.draft-card-avail { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.draft-card-avail.avail-placed { background: rgba(76,209,120,0.18); color: #4cd178; }
+.draft-card-avail.avail-hand { background: rgba(90,170,255,0.18); color: #5aaaff; }
+.draft-card-avail.avail-none { background: rgba(255,255,255,0.08); color: #8291a8; }
 .hand-card.modifier-card { border-style: dashed !important; }
 </style>
 </head>
@@ -1311,6 +1315,7 @@ function renderDraft() {
     name.className = 'draft-card-name';
     const desc = document.createElement('div');
     desc.className = 'draft-card-desc';
+    let avail = null;
     if (card.kind === 'tower') {
       const def = TOWER_DEFS[card.type];
       icon.textContent = def.icon;
@@ -1321,8 +1326,23 @@ function renderDraft() {
       icon.textContent = meta.icon;
       name.textContent = capitalize(card.type) + ' · ' + meta.name;
       desc.textContent = 'Sets a placed ' + capitalize(card.type) + " tower's " + meta.name + ' path to Lv' + card.targetLevel + '.';
+      const hasPlaced = towers.some(t => t.def.type === card.type);
+      const hasInHand = hand.some(c => c.kind === 'tower' && c.type === card.type);
+      avail = document.createElement('div');
+      avail.className = 'draft-card-avail';
+      if (hasPlaced) {
+        avail.classList.add('avail-placed');
+        avail.textContent = '● Have placed';
+      } else if (hasInHand) {
+        avail.classList.add('avail-hand');
+        avail.textContent = '● In hand';
+      } else {
+        avail.classList.add('avail-none');
+        avail.textContent = '⚠ No ' + capitalize(card.type) + ' tower yet';
+      }
     }
     el.appendChild(icon); el.appendChild(toprow); el.appendChild(name); el.appendChild(desc);
+    if (avail) el.appendChild(avail);
     el.onclick = () => toggleDraftCard(i);
     wireButtonHoverColor(el);
     container.appendChild(el);
