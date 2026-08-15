@@ -11,7 +11,8 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 #ui button, #tower-menu button, #ability-menu button, #action-menu button, #tower-context-menu button, #start-panel button { padding: 4px 8px; font-size: 11px; border-radius: 5px; cursor: pointer; transition: all 0.15s; color: #ffffff; border: 1px solid #666; background: #2a2a3a; font-family: sans-serif; }
 #ui button:hover, #tower-menu button:hover, #ability-menu button:hover, #action-menu button:hover, #tower-context-menu button:hover, #start-panel button:hover { background: #ffffff; border-color: #000; }
 .tower-btn { border: 2px solid #aaa !important; }
-.tower-btn.selected { border-color: #f0c040 !important; box-shadow: 0 0 0 2px #f0c040; }
+.hand-card { border-color: var(--card-color, #aaa) !important; }
+.tower-btn.selected { box-shadow: 0 0 0 2px #f0c040; }
 #start-btn { background: #0f3460; border-color: #e94560 !important; }
 #start-btn:disabled { opacity: 0.4; cursor: default; }
 #gameover-panel { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 900; flex-direction: column; align-items: center; gap: 10px; padding: 24px 32px; background: #16213e; border: 1px solid #0f3460; border-radius: 10px; text-align: center; font-family: sans-serif; color: #fff; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
@@ -82,6 +83,32 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 .ut-tier-desc { flex: 1; }
 .ability-row-btn.ability-ready { border-color: #f0c040 !important; box-shadow: 0 0 0 2px rgba(240,192,64,0.4); }
 #ui button:disabled, #tower-menu button:disabled, #ability-menu button:disabled, #action-menu button:disabled, #tower-context-menu button:disabled { opacity: 0.5; cursor: default; }
+#ctx-tower-rarity { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+#tower-menu button, #tower-menu #hand-cards button { width: 100%; text-align: left; }
+#hand-cards button { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#draft-modal { display: none; position: fixed; inset: 0; z-index: 900; align-items: center; justify-content: center; background: rgba(0,0,0,0.72); }
+#draft-content { background: #16213e; border: 1px solid #0f3460; border-radius: 10px; padding: 20px 24px; max-width: 90vw; font-family: sans-serif; color: #fff; text-align: center; }
+#draft-header { margin-bottom: 10px; }
+#draft-title { font-size: 16px; font-weight: 600; }
+#draft-pick-counter { display: none; font-size: 12px; color: #7891b0; margin-bottom: 10px; }
+#draft-options { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+#draft-confirm-btn { display: none; margin-top: 14px; padding: 8px 22px; font-size: 13px; }
+.draft-card { width: 150px; padding: 12px 10px; border-radius: 8px; border: 2px solid var(--card-color, #666); background: #1c2942; cursor: pointer; display: flex; flex-direction: column; gap: 6px; align-items: center; transition: transform 0.15s; font-family: sans-serif; color: #fff; }
+.draft-card:hover { transform: translateY(-3px); }
+.draft-card.selected { box-shadow: 0 0 0 2px #f0c040; }
+.draft-card-icon { font-size: 26px; }
+.draft-card-rarity { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.draft-card-name { font-size: 12px; font-weight: 600; color: #fff; }
+.draft-card-desc { font-size: 10px; color: #9fb0c8; line-height: 1.3; }
+.card-kind-tag { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.card-kind-tag.kind-tower { background: rgba(255,255,255,0.14); color: #cfd8e6; }
+.card-kind-tag.kind-modifier { background: rgba(240,192,64,0.18); color: #f0c040; border: 1px solid rgba(240,192,64,0.5); }
+.draft-card-toprow { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.draft-card-avail { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.draft-card-avail.avail-placed { background: rgba(76,209,120,0.18); color: #4cd178; }
+.draft-card-avail.avail-hand { background: rgba(90,170,255,0.18); color: #5aaaff; }
+.draft-card-avail.avail-none { background: rgba(255,255,255,0.08); color: #8291a8; }
+.hand-card.modifier-card { border-style: dashed !important; }
 </style>
 </head>
 <body>
@@ -94,7 +121,7 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 <div id="msg" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:500;text-align:center;pointer-events:none;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.9);display:none;white-space:pre;font-family:sans-serif;z-index:600;"></div>
 <div id="title-screen">
   <div id="title-name">🏰 Tower Defense</div>
-  <div id="title-tagline">Defend the castle. Upgrade relentlessly. Survive the swarm.</div>
+  <div id="title-tagline">Draft rare cards, deploy towers, and level them up between waves. Survive the swarm.</div>
   <div id="title-tower-row">🏹 ⚡ 🔥 🧊 🎯</div>
   <button id="title-play-btn" onclick="showStartPanel()">▶ Play</button>
 </div>
@@ -127,12 +154,8 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
 </div>
 <div id="cursor-tower"></div>
 <div id="tower-menu">
-  <div id="tower-menu-label">🏗️ Towers</div>
-  <button class="tower-btn" id="arrow-btn" onclick="selectMode('arrow')">🏹 Arrow (50g)</button>
-  <button class="tower-btn" id="laser-btn" onclick="selectMode('laser')">⚡ Laser (80g)</button>
-  <button class="tower-btn" id="inferno-btn" onclick="selectMode('inferno')">🔥 Inferno (150g)</button>
-  <button class="tower-btn" id="frost-btn" onclick="selectMode('frost')" title="Slows on hit and can shatter frozen enemies for bonus damage">🧊 Frost (110g)</button>
-  <button class="tower-btn" id="sniper-btn" onclick="selectMode('sniper')" title="Longest range, huge single-shot damage, always targets the toughest enemy in range, and can hit air from the start">🎯 Sniper (180g)</button>
+  <div id="tower-menu-label">🎴 Hand</div>
+  <div id="hand-cards"></div>
 </div>
 <div id="ability-menu" style="display:none;">
   <button id="ability-menu-handle" onclick="toggleAbilityMenu()">✨ Abilities ▶</button>
@@ -149,7 +172,8 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
       <div id="ctx-tower-icon"></div>
       <button id="ctx-tower-info-btn" onclick="toggleUpgradeTree()" title="View full upgrade path">i</button>
     </div>
-    <button id="ctx-sell-btn" onclick="ctxSell()">💸 Sell</button>
+    <span id="ctx-tower-rarity"></span>
+    <button id="ctx-sell-btn" onclick="ctxSell()">🗑️ Remove</button>
   </div>
   <div id="ctx-paths">
     <div class="ctx-path" data-slot="0">
@@ -182,6 +206,16 @@ body { background: #1a1a2e; overflow-x: hidden; overflow-y: auto; cursor: defaul
       <button id="upgrade-tree-close-btn" onclick="hideUpgradeTree()">✕</button>
     </div>
     <div id="upgrade-tree-paths"></div>
+  </div>
+</div>
+<div id="draft-modal">
+  <div id="draft-content">
+    <div id="draft-header">
+      <span id="draft-title">🎴 Choose a Card</span>
+    </div>
+    <div id="draft-pick-counter"></div>
+    <div id="draft-options"></div>
+    <button id="draft-confirm-btn" onclick="confirmDraft()">Confirm</button>
   </div>
 </div>
 
@@ -256,6 +290,11 @@ let hoverGX = -1, hoverGY = -1;
 let doubleSpeed = false;
 let tick_count = 0;
 let gameStarted = false, difficulty = 'normal', selectedMap = 0;
+let hand = [];            // cards the player currently holds, drafted between waves
+let draftOptions = null;  // array of offered cards while a draft is pending, else null
+let draftPickCount = 0;   // how many of draftOptions must be chosen this draft
+let draftSelected = [];   // indices toggled on so far, while draftPickCount > 1
+let nextCardId = 1;
 
 const MAX_PATH_LEVEL = 5;
 const CROSSPATH_CAP = 2; // at most one path may exceed this tier at a time
@@ -268,11 +307,25 @@ const DIFFICULTIES = {
 };
 
 const TOWER_DEFS = {
-  arrow:   { cost: 50,  range: 3,     damage: 75, rate: 60, color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false },
-  laser:   { cost: 80,  range: 4.125, damage: 20, rate: 20, color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false },
-  inferno: { cost: 150, range: 3.5,   damage: 0,  rate: 1,  color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true },
-  frost:   { cost: 110, range: 3.25,  damage: 35, rate: 45, color: '#40c0ff', pcolor: '#c0f0ff', speed: 8,  type: 'frost',   icon: '🧊', canTargetAir: false },
-  sniper:  { cost: 180, range: 5.5,   damage: 260, rate: 150, color: '#c8c8d8', pcolor: '#eaeaff', speed: 26, type: 'sniper', icon: '🎯', canTargetAir: true },
+  arrow:   { range: 3,     damage: 75,  rate: 60,  color: '#7ec850', pcolor: '#b0ff70', speed: 7,  type: 'arrow',   icon: '🏹', canTargetAir: false },
+  laser:   { range: 4.125, damage: 20,  rate: 20,  color: '#50c8f0', pcolor: '#80e8ff', speed: 12, type: 'laser',   icon: '⚡', canTargetAir: false },
+  inferno: { range: 3.5,   damage: 0,   rate: 1,   color: '#ff6010', pcolor: '#ff9040', speed: 0,  type: 'inferno', icon: '🔥', canTargetAir: true },
+  frost:   { range: 3.25,  damage: 35,  rate: 45,  color: '#40c0ff', pcolor: '#c0f0ff', speed: 8,  type: 'frost',   icon: '🧊', canTargetAir: false },
+  sniper:  { range: 5.5,   damage: 260, rate: 150, color: '#c8c8d8', pcolor: '#eaeaff', speed: 26, type: 'sniper',  icon: '🎯', canTargetAir: true },
+};
+
+// Flavor tooltips that used to live on the static buy buttons; surfaced on hand cards now.
+const TOWER_TIPS = {
+  frost:  'Slows on hit and can shatter frozen enemies for bonus damage',
+  sniper: 'Longest range, huge single-shot damage, always targets the toughest enemy in range, and can hit air from the start',
+};
+
+const RARITY_ORDER = ['common', 'rare', 'epic', 'legendary'];
+const RARITY = {
+  common:    { label: 'Common',    color: '#9ba7b5', weight: 100, statMult: 1.00, modTargetLevel: 2 },
+  rare:      { label: 'Rare',      color: '#4fa8e0', weight: 50,  statMult: 1.20, modTargetLevel: 3 },
+  epic:      { label: 'Epic',      color: '#b061e0', weight: 18,  statMult: 1.45, modTargetLevel: 4 },
+  legendary: { label: 'Legendary', color: '#f0a832', weight: 5,   statMult: 1.80, modTargetLevel: 5 },
 };
 
 // Each tier entry is the tower's stat state AT that tier (not a delta). Tier index 0 = path level 1.
@@ -320,11 +373,13 @@ const PATH_META = {
 // shows up from the middle tiers onward and keeps scaling alongside the base stat,
 // so a path reads as its own thing well before it's maxed out — not just "+X%" five
 // times with a twist at the very end.
-// Tier costs are a fixed multiple of the tower's own placement cost, back-loaded
-// so tier 5 is the real money sink: [0.9, 1.6, 2.8, 4.5, 8.0]x. Maxing a single
-// path costs ~17.8x the tower's price; only one path per tower can ever get there
-// (see canLevelPath/CROSSPATH_CAP), so tier 5 is deliberately a big spike rather
-// than a linear continuation of tiers 1-4.
+// Tiers are no longer bought with gold — they're set directly by playing a drafted
+// "modifier" card (see the card-draft system below), which jumps a path straight to
+// a target level based on the card's rarity (RARITY.modTargetLevel: common->Lv2,
+// rare->Lv3, epic->Lv4, legendary->Lv5), still capped at MAX_PATH_LEVEL and gated by
+// the crosspath rule (canLevelPath/CROSSPATH_CAP). The `cost` field on each tier below
+// is now inert (nothing reads it) — left in place rather than hand-stripped from all
+// 75 tier objects, since that's a purely mechanical, error-prone edit for no gain.
 const PATH_DEFS = {
   arrow: {
     power: [
@@ -449,6 +504,51 @@ function newTowerPaths(type) {
   return paths;
 }
 
+// Rarity odds shift toward rarer cards as the run progresses (capped at wave 25 so
+// very long runs don't degenerate into all-legendary draws).
+function rarityWeights(w) {
+  const t = Math.min(w, 25) / 25;
+  return {
+    common:    RARITY.common.weight    * (1 - 0.55 * t),
+    rare:      RARITY.rare.weight      * (1 + 0.3  * t),
+    epic:      RARITY.epic.weight      * (1 + 1.5  * t),
+    legendary: RARITY.legendary.weight * (1 + 3.0  * t),
+  };
+}
+function rollRarity(w) {
+  const weights = rarityWeights(w);
+  const total = RARITY_ORDER.reduce((s, k) => s + weights[k], 0);
+  let r = Math.random() * total;
+  for (const k of RARITY_ORDER) { if (r < weights[k]) return k; r -= weights[k]; }
+  return RARITY_ORDER[RARITY_ORDER.length - 1];
+}
+
+function makeCardId() { return nextCardId++; }
+const TOWER_TYPE_LIST = Object.keys(TOWER_DEFS);
+function randomTowerType() { return TOWER_TYPE_LIST[Math.floor(Math.random() * TOWER_TYPE_LIST.length)]; }
+function randomPathKeyFor(type) { const keys = PATH_KEYS[type]; return keys[Math.floor(Math.random() * keys.length)]; }
+
+function makeTowerCard(rarity) {
+  return { id: makeCardId(), kind: 'tower', type: randomTowerType(), rarity };
+}
+function makeModifierCard(rarity) {
+  const type = randomTowerType();
+  const pathKey = randomPathKeyFor(type);
+  return { id: makeCardId(), kind: 'modifier', type, pathKey, rarity, targetLevel: RARITY[rarity].modTargetLevel };
+}
+
+// forceTowerOnly is used for the pre-wave-1 draft, so the player is guaranteed
+// towers to place rather than possibly drawing only modifier cards with nothing
+// yet on the board to apply them to.
+function buildDraftOptions(n, forceTowerOnly) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const rarity = rollRarity(wave);
+    out.push((forceTowerOnly || Math.random() < 0.5) ? makeTowerCard(rarity) : makeModifierCard(rarity));
+  }
+  return out;
+}
+
 // Effective stats/mechanics for a tower, combining its base def with whatever
 // tier each of its 3 paths has reached (only the highest reached tier per path applies).
 function towerStats(t) {
@@ -460,7 +560,8 @@ function towerStats(t) {
     // once granted even if a later tier's entry doesn't repeat them.
     for (let i = 0; i < level; i++) Object.assign(stats, PATH_DEFS[t.def.type][key][i]);
   }
-  stats.damage = t.def.damage * stats.dmgMult;
+  stats.statMult = t.statMult || 1;
+  stats.damage = t.def.damage * stats.dmgMult * stats.statMult;
   stats.rate = Math.max(1, Math.round(t.def.rate * stats.rateMult));
   stats.range = t.def.range + stats.rangeAdd;
   return stats;
@@ -555,29 +656,50 @@ function canLevelPath(t, key) {
   return true;
 }
 
-function selectMode(m) {
-  if (gold < TOWER_DEFS[m].cost) return;
-  mode = (mode === m) ? null : m;
-  ['arrow','laser','inferno','frost','sniper'].forEach(t => {
-    const b = document.getElementById(t+'-btn');
-    if (b) b.classList.toggle('selected', t === mode);
-  });
+// Among held modifier cards that match this tower type + path AND would actually
+// raise it (targetLevel above the path's current level), returns the highest-rarity
+// one (ties -> earliest drafted). A card that wouldn't help is never a match.
+function findModifierCard(type, pathKey, currentLevel) {
+  let best = null;
+  for (const card of hand) {
+    if (card.kind !== 'modifier' || card.type !== type || card.pathKey !== pathKey) continue;
+    if (card.targetLevel <= currentLevel) continue;
+    if (!best || card.targetLevel > best.targetLevel) best = card;
+  }
+  return best;
+}
+
+// `mode` now holds a hand-card id (not a tower-type string) — only tower-kind cards
+// are ever assigned to it; modifier cards are used via the tower context menu instead.
+function activeHandCard() {
+  return hand.find(c => c.id === mode);
+}
+
+function selectHandCard(cardId) {
+  const card = hand.find(c => c.id === cardId);
+  if (!card || card.kind !== 'tower') return;
+  mode = (mode === cardId) ? null : cardId;
+  updateHandSelection();
   updateCursor();
   hideTowerContext();
 }
 
+function updateHandSelection() {
+  document.querySelectorAll('#hand-cards .hand-card').forEach(b => {
+    b.classList.toggle('selected', Number(b.dataset.cardId) === mode);
+  });
+}
+
 function clearMode() {
   mode = null;
-  ['arrow','laser','inferno','frost','sniper'].forEach(t => {
-    const b = document.getElementById(t+'-btn');
-    if (b) b.classList.remove('selected');
-  });
+  updateHandSelection();
   updateCursor();
 }
 
 function updateCursor() {
-  if (mode && TOWER_DEFS[mode]) {
-    cursorEl.textContent = TOWER_DEFS[mode].icon;
+  const card = activeHandCard();
+  if (card) {
+    cursorEl.textContent = TOWER_DEFS[card.type].icon;
     cursorEl.style.display = 'block';
     canvas.style.cursor = 'none';
   } else {
@@ -590,6 +712,11 @@ let ctxTower = null;
 function showTowerContext(tower) {
   ctxTower = tower;
   document.getElementById('ctx-tower-icon').textContent = tower.def.icon;
+  const rarity = RARITY[tower.rarity] || RARITY.common;
+  document.getElementById('ctx-tower-icon').style.borderColor = rarity.color;
+  const rEl = document.getElementById('ctx-tower-rarity');
+  rEl.textContent = rarity.label;
+  rEl.style.color = rarity.color;
   updateCtxPaths();
   document.getElementById('tower-context-menu').style.display = 'flex';
   hideUpgradeTree();
@@ -756,11 +883,11 @@ function updateCtxPaths() {
       container.classList.add('ctx-path-locked');
       desc.textContent = 'Next: ' + describeTier(PATH_DEFS[type][key][level]);
     } else {
-      const next = PATH_DEFS[type][key][level];
-      btn.disabled = gold < next.cost;
-      btn.textContent = 'Upgrade (' + next.cost + 'g)';
+      const card = findModifierCard(type, key, level);
+      btn.disabled = !card;
+      btn.textContent = card ? ('Use Card (→Lv' + card.targetLevel + ')') : 'No Card';
       container.classList.remove('ctx-path-locked');
-      desc.textContent = 'Next: ' + describeTier(next);
+      desc.textContent = 'Next: ' + describeTier(PATH_DEFS[type][key][level]);
     }
   });
 }
@@ -817,9 +944,6 @@ function renderUpgradeTree() {
       const lvl = document.createElement('span');
       lvl.className = 'ut-tier-lvl';
       lvl.textContent = (i < level ? '✓ ' : '') + 'Lv' + (i + 1);
-      const cost = document.createElement('span');
-      cost.className = 'ut-tier-cost';
-      cost.textContent = tier.cost + 'g';
       const desc = document.createElement('span');
       desc.className = 'ut-tier-desc';
       let text = describeTier(tier);
@@ -828,7 +952,6 @@ function renderUpgradeTree() {
       }
       desc.textContent = text;
       row.appendChild(lvl);
-      row.appendChild(cost);
       row.appendChild(desc);
       pathDiv.appendChild(row);
     });
@@ -839,21 +962,24 @@ function renderUpgradeTree() {
 function ctxPathUpgrade(slot) {
   if (!ctxTower || gameOver) return;
   const key = PATH_KEYS[ctxTower.def.type][slot];
-  if (!canLevelPath(ctxTower, key)) return;
-  const next = PATH_DEFS[ctxTower.def.type][key][ctxTower.paths[key]];
-  if (gold < next.cost) { showMsg('Not enough gold', 1000); return; }
-  gold -= next.cost;
-  ctxTower.invested += next.cost;
-  ctxTower.paths[key]++;
+  const card = findModifierCard(ctxTower.def.type, key, ctxTower.paths[key]);
+  if (!card || !canLevelPath(ctxTower, key)) return;
+  let applied = 0;
+  while (ctxTower.paths[key] < card.targetLevel && canLevelPath(ctxTower, key)) {
+    ctxTower.paths[key]++;
+    applied++;
+  }
+  if (applied === 0) return;
+  ctxTower.pathTier[key] = card.rarity;
+  hand = hand.filter(c => c.id !== card.id);
   updateUI();
-  showMsg(ctxTower.def.icon + ' ' + PATH_META[ctxTower.def.type][key].name + ' Lv' + ctxTower.paths[key] + '!', 1200);
+  showMsg(ctxTower.def.icon + ' ' + PATH_META[ctxTower.def.type][key].name + ' → Lv' + ctxTower.paths[key] + '!', 1200);
   updateCtxPaths();
   sfxUpgrade();
 }
 
 function ctxSell() {
   if (!ctxTower || gameOver) return;
-  gold += Math.floor(ctxTower.invested * 0.5);
   if (hoveredAbilityTower === ctxTower) hoveredAbilityTower = null;
   towers = towers.filter(t => t !== ctxTower);
   updateUI();
@@ -956,12 +1082,13 @@ canvas.addEventListener('click', e => {
   const ps = pathSet();
   const existing = towerAt(gx, gy);
 
-  if (mode && TOWER_DEFS[mode]) {
+  if (mode) {
+    const card = hand.find(c => c.id === mode);
+    if (!card || card.kind !== 'tower') { clearMode(); return; }
     if (ps.has(gx+','+gy) || existing) return;
-    const def = TOWER_DEFS[mode];
-    if (gold < def.cost) { showMsg('Insufficient funds', 1000); return; }
-    gold -= def.cost;
-    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(mode), invested: def.cost, activeCooldown: 0, focusTarget: null, focusStacks: 0 });
+    const def = TOWER_DEFS[card.type];
+    towers.push({ gx, gy, def, cooldown: 0, heatTarget: null, heat: 0, paths: newTowerPaths(card.type), pathTier: {}, rarity: card.rarity, statMult: RARITY[card.rarity].statMult, activeCooldown: 0, focusTarget: null, focusStacks: 0 });
+    hand = hand.filter(c => c.id !== card.id);
     updateUI();
     clearMode();
     sfxPlace();
@@ -1084,7 +1211,7 @@ function applyDamage(e, dmg, armorPierce) {
 }
 
 function startWave() {
-  if (waveActive || gameOver) return;
+  if (waveActive || gameOver || draftOptions) return;
   wave++; waveActive = true;
   const total = 5 + wave * 3;
   const isBossWave = wave >= 10 && wave % 5 === 0;
@@ -1112,23 +1239,175 @@ function startWave() {
   }
 }
 
+// Card draft: offered between waves (and once before wave 1). draftPickCount is how
+// many of draftOptions the player must choose; >1 needs an explicit Confirm click,
+// ===1 resolves immediately on click (matching the old single-choice UX).
+// Always shown and resolved manually -- even with Auto Wave on, since the pick is a
+// meaningful decision the player should make, not one worth quietly automating away.
+function openDraft(n, pickCount, forceTowerOnly) {
+  draftOptions = buildDraftOptions(n, forceTowerOnly);
+  draftPickCount = pickCount;
+  draftSelected = [];
+  hideTowerContext();
+  updateUI();
+  renderDraft();
+  document.getElementById('draft-modal').style.display = 'flex';
+}
+
+function toggleDraftCard(i) {
+  if (draftPickCount === 1) { finalizeDraft([i]); return; }
+  const idx = draftSelected.indexOf(i);
+  if (idx >= 0) draftSelected.splice(idx, 1);
+  else if (draftSelected.length < draftPickCount) draftSelected.push(i);
+  renderDraft();
+}
+
+function confirmDraft() {
+  if (draftPickCount === 1 || draftSelected.length !== draftPickCount) return;
+  finalizeDraft(draftSelected);
+}
+
+function finalizeDraft(indices) {
+  indices.forEach(i => { if (draftOptions[i]) hand.push(draftOptions[i]); });
+  draftOptions = null;
+  draftPickCount = 0;
+  draftSelected = [];
+  document.getElementById('draft-modal').style.display = 'none';
+  updateUI();
+  sfxUpgrade();
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function renderDraft() {
+  const counter = document.getElementById('draft-pick-counter');
+  const confirmBtn = document.getElementById('draft-confirm-btn');
+  if (draftPickCount > 1) {
+    counter.style.display = 'block';
+    counter.textContent = 'Pick ' + draftPickCount + ' of ' + draftOptions.length + ' — ' + draftSelected.length + ' selected';
+    confirmBtn.style.display = 'inline-block';
+    confirmBtn.disabled = draftSelected.length !== draftPickCount;
+  } else {
+    counter.style.display = 'none';
+    counter.textContent = '';
+    confirmBtn.style.display = 'none';
+  }
+  const container = document.getElementById('draft-options');
+  container.innerHTML = '';
+  draftOptions.forEach((card, i) => {
+    const rarity = RARITY[card.rarity];
+    const el = document.createElement('button');
+    el.className = 'draft-card' + (draftSelected.includes(i) ? ' selected' : '');
+    el.style.setProperty('--card-color', rarity.color);
+    const icon = document.createElement('div');
+    icon.className = 'draft-card-icon';
+    const kindTag = document.createElement('div');
+    kindTag.className = 'card-kind-tag ' + (card.kind === 'tower' ? 'kind-tower' : 'kind-modifier');
+    kindTag.textContent = card.kind === 'tower' ? 'Tower' : '⬆ Upgrade';
+    const rarityLbl = document.createElement('div');
+    rarityLbl.className = 'draft-card-rarity';
+    rarityLbl.style.color = rarity.color;
+    rarityLbl.textContent = rarity.label;
+    const toprow = document.createElement('div');
+    toprow.className = 'draft-card-toprow';
+    toprow.appendChild(rarityLbl); toprow.appendChild(kindTag);
+    const name = document.createElement('div');
+    name.className = 'draft-card-name';
+    const desc = document.createElement('div');
+    desc.className = 'draft-card-desc';
+    let avail = null;
+    if (card.kind === 'tower') {
+      const def = TOWER_DEFS[card.type];
+      icon.textContent = def.icon;
+      name.textContent = capitalize(card.type) + ' Tower';
+      desc.textContent = 'Deploy a new ' + capitalize(card.type) + ' tower (×' + rarity.statMult.toFixed(2) + ' damage).';
+    } else {
+      const meta = PATH_META[card.type][card.pathKey];
+      icon.textContent = meta.icon;
+      name.textContent = capitalize(card.type) + ' · ' + meta.name;
+      desc.textContent = 'Sets a placed ' + capitalize(card.type) + " tower's " + meta.name + ' path to Lv' + card.targetLevel + '.';
+      const hasPlaced = towers.some(t => t.def.type === card.type);
+      const hasInHand = hand.some(c => c.kind === 'tower' && c.type === card.type);
+      avail = document.createElement('div');
+      avail.className = 'draft-card-avail';
+      if (hasPlaced) {
+        avail.classList.add('avail-placed');
+        avail.textContent = '● Have placed';
+      } else if (hasInHand) {
+        avail.classList.add('avail-hand');
+        avail.textContent = '● In hand';
+      } else {
+        avail.classList.add('avail-none');
+        avail.textContent = '⚠ No ' + capitalize(card.type) + ' tower yet';
+      }
+    }
+    el.appendChild(icon); el.appendChild(toprow); el.appendChild(name); el.appendChild(desc);
+    if (avail) el.appendChild(avail);
+    el.onclick = () => toggleDraftCard(i);
+    wireButtonHoverColor(el);
+    container.appendChild(el);
+  });
+}
+
 function updateUI() {
   document.getElementById('lives').textContent = lives;
   document.getElementById('gold').textContent = gold;
   document.getElementById('wave').textContent = wave;
-  document.getElementById('start-btn').disabled = waveActive;
-  updateTowerButtons();
+  document.getElementById('start-btn').disabled = waveActive || !!draftOptions;
+  renderHand();
   updateCtxPaths();
   refreshAbilityMenu();
 }
 
-function updateTowerButtons() {
-  Object.keys(TOWER_DEFS).forEach(t => {
-    const b = document.getElementById(t+'-btn');
-    if (!b) return;
-    const affordable = gold >= TOWER_DEFS[t].cost;
-    b.disabled = !affordable;
-    if (!affordable && mode === t) clearMode();
+// Mirrors the ability-menu's rebuild-only-on-change pattern (see refreshAbilityMenu/
+// rebuildAbilityMenu) so updateUI() -- called many times a second during combat, e.g.
+// on every kill -- doesn't tear down and recreate the hand's button DOM (and lose
+// in-flight click handlers) when the hand itself hasn't actually changed.
+let handRenderIds = [];
+function sameIdList(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+function renderHand() {
+  const ids = hand.map(c => c.id);
+  if (sameIdList(ids, handRenderIds)) return;
+  handRenderIds = ids;
+  rebuildHandButtons();
+}
+function rebuildHandButtons() {
+  const container = document.getElementById('hand-cards');
+  container.innerHTML = '';
+  hand.forEach(card => {
+    const rarity = RARITY[card.rarity];
+    const btn = document.createElement('button');
+    btn.dataset.cardId = card.id;
+    btn.style.setProperty('--card-color', rarity.color);
+    const label = document.createElement('span');
+    const tag = document.createElement('span');
+    tag.className = 'card-kind-tag';
+    if (card.kind === 'tower') {
+      const def = TOWER_DEFS[card.type];
+      btn.className = 'tower-btn hand-card';
+      if (mode === card.id) btn.classList.add('selected');
+      label.textContent = def.icon + ' ' + capitalize(card.type) + ' · ' + rarity.label;
+      tag.classList.add('kind-tower');
+      tag.textContent = 'Tower';
+      if (TOWER_TIPS[card.type]) btn.title = TOWER_TIPS[card.type];
+      btn.onclick = () => selectHandCard(card.id);
+    } else {
+      const meta = PATH_META[card.type][card.pathKey];
+      btn.className = 'tower-btn hand-card modifier-card';
+      btn.disabled = true;
+      label.textContent = meta.icon + ' ' + meta.name + ' →Lv' + card.targetLevel + ' · ' + rarity.label;
+      tag.classList.add('kind-modifier');
+      tag.textContent = '⬆ Upgrade';
+      btn.title = 'Open a placed ' + capitalize(card.type) + " tower's menu to use this on its " + meta.name + ' path.';
+    }
+    btn.appendChild(label);
+    btn.appendChild(tag);
+    wireButtonHoverColor(btn);
+    container.appendChild(btn);
   });
 }
 
@@ -1272,7 +1551,7 @@ function tick() {
         t.heat = Math.min(t.heat + stats.heatRate, 180);
         const heat01 = t.heat / 180;
         // damage scales with heat: starts at 0.3/tick, ramps to 4/tick over 3 seconds, scaled by path level
-        const dmgPerTick = (0.3 + heat01 * 4) * stats.dmgMult;
+        const dmgPerTick = (0.3 + heat01 * 4) * stats.dmgMult * stats.statMult;
         applyDamage(best, dmgPerTick);
         best.onFire = t.heat;
         // Afterburn (Sustained Burn): target keeps taking a fraction of that tick's
@@ -1384,11 +1663,16 @@ function tick() {
     document.getElementById('start-btn').disabled = false;
     sfxWaveComplete();
     if (autoWave) autoDelay = 0;
+    // Guards against opening a draft in the same tick the run ends (an enemy can
+    // reach the castle in the same tick spawnQueue/enemies both empty out).
+    if (lives > 0) openDraft(3, 1, false);
   }
 
   if (lives <= 0) {
     gameOver = true; clearMode();
     hideTowerContext();
+    draftOptions = null;
+    document.getElementById('draft-modal').style.display = 'none';
     sfxGameOver();
     showGameOver();
   }
@@ -1447,6 +1731,8 @@ function restartGame() {
   towers = []; enemies = []; bullets = []; particles = []; popups = [];
   waveActive = false; spawnQueue = []; spawnTimer = 0;
   wave = 0; score = 0;
+  hand = []; draftOptions = null; draftPickCount = 0; draftSelected = [];
+  document.getElementById('draft-modal').style.display = 'none';
   clearMode();
   hideTowerContext();
   abilityMenuTowers = [];
@@ -1482,6 +1768,7 @@ function beginRun() {
   towers = []; enemies = []; bullets = []; particles = []; popups = [];
   waveActive = false; spawnQueue = []; spawnTimer = 0;
   gameOver = false; autoDelay = 0; tick_count = 0;
+  hand = []; draftOptions = null; draftPickCount = 0; draftSelected = [];
   abilityMenuTowers = [];
   hoveredAbilityTower = null;
   abilityTipShown = false;
@@ -1494,6 +1781,7 @@ function beginRun() {
   setGameChromeVisible(true);
   gameStarted = true;
   updateUI();
+  openDraft(5, 2, true);
 }
 
 function drawBeam(x1, y1, x2, y2, heat) {
@@ -1522,13 +1810,13 @@ function drawBeam(x1, y1, x2, y2, heat) {
 function draw() {
   ctx.clearRect(0, 0, GAME_W, GAME_H);
   const ps = pathSet();
+  const placingCard = activeHandCard();
 
   for (let gy=0; gy<ROWS; gy++) {
     for (let gx=0; gx<COLS; gx++) {
       const isPath = ps.has(gx+','+gy);
-      const isHover = gx===hoverGX && gy===hoverGY && !isPath && mode && TOWER_DEFS[mode];
-      const def = mode ? TOWER_DEFS[mode] : null;
-      const canPlace = isHover && def && gold >= def.cost && !towerAt(gx,gy);
+      const isHover = gx===hoverGX && gy===hoverGY && !isPath && placingCard;
+      const canPlace = isHover && !towerAt(gx,gy);
       ctx.fillStyle = isPath ? '#2a2010' : isHover ? (canPlace ? 'rgba(80,180,80,0.25)' : 'rgba(180,60,60,0.25)') : '#0d1b2a';
       ctx.fillRect(gx*CELL, gy*CELL, CELL-1, CELL-1);
     }
@@ -1571,6 +1859,18 @@ function draw() {
       ctx.lineWidth = 2;
       ctx.stroke();
     }
+    // Rarity ring: persistent (not hover-only), colored by the tower's drafted rarity.
+    // Common towers get no ring, so only rare/epic/legendary stand out visually.
+    if (t.rarity && t.rarity !== 'common') {
+      ctx.save();
+      ctx.strokeStyle = RARITY[t.rarity].color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = RARITY[t.rarity].color;
+      ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.roundRect(t.gx*CELL+1, t.gy*CELL+1, CELL-3, CELL-3, 4);
+      ctx.stroke();
+      ctx.restore();
+    }
     const towerFont = Math.round(13*SPRITE_SCALE);
     ctx.font = towerFont+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'; ctx.textAlign = 'center';
     ctx.fillText(t.def.icon, cx, cy+Math.round(towerFont*0.38));
@@ -1578,21 +1878,36 @@ function draw() {
       ctx.fillStyle = '#8ec8ff'; ctx.strokeStyle = '#0a2a4a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(t.gx*CELL+CELL-5, t.gy*CELL+5, 3.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
     }
-    // Path level bars: one thin row per path (power/speed-or-heat/utility), width = level/5
-    const pathColors = { power: '#e94560', speed: '#50c8f0', heat: '#8ec8ff', chill: '#40c0ff', utility: '#7ec850' };
+    // Upgrade badges: each leveled path gets its own icon (from PATH_META) plus a
+    // level-number chip, lined up along the bottom edge (slot = the path's fixed index
+    // in PATH_KEYS, so a given path always sits in the same spot). Badge color is the
+    // rarity of the modifier CARD that path was last raised with (t.pathTier, set in
+    // ctxPathUpgrade) -- not the tower's own drafted rarity -- so it reflects how strong
+    // that particular upgrade was.
     const keys = PATH_KEYS[t.def.type];
-    const barW = CELL - 6, barH = 1.5, barGap = 0.5;
-    let barY = t.gy*CELL + CELL - 2 - (barH+barGap)*keys.length;
-    for (const key of keys) {
+    const badgeR = Math.max(4, CELL * 0.13);
+    const slotX = [t.gx*CELL + CELL*0.2, t.gx*CELL + CELL*0.5, t.gx*CELL + CELL*0.8];
+    const badgeY = t.gy*CELL + CELL - badgeR - 1;
+    keys.forEach((key, i) => {
       const level = t.paths[key];
-      if (level > 0) {
-        ctx.fillStyle = 'rgba(0,0,0,0.4)';
-        ctx.fillRect(t.gx*CELL+3, barY, barW, barH);
-        ctx.fillStyle = pathColors[key];
-        ctx.fillRect(t.gx*CELL+3, barY, barW * (level/MAX_PATH_LEVEL), barH);
-      }
-      barY += barH + barGap;
-    }
+      if (level <= 0) return;
+      const meta = PATH_META[t.def.type][key];
+      const tierColor = (RARITY[t.pathTier && t.pathTier[key]] || RARITY.common).color;
+      const px = slotX[i], py = badgeY;
+      ctx.beginPath(); ctx.arc(px, py, badgeR, 0, Math.PI*2);
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.strokeStyle = tierColor; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.font = Math.round(badgeR*1.3)+'px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(meta.icon, px, py + badgeR*0.4);
+      const nx = px + badgeR*0.7, ny = py + badgeR*0.7, nr = Math.max(3.5, badgeR*0.55);
+      ctx.beginPath(); ctx.arc(nx, ny, nr, 0, Math.PI*2);
+      ctx.fillStyle = tierColor; ctx.fill();
+      ctx.strokeStyle = '#0a0a14'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.font = 'bold ' + Math.round(nr*1.3) + 'px sans-serif';
+      ctx.fillStyle = '#0a0a14';
+      ctx.fillText(String(level), nx, ny + nr*0.38);
+    });
     if (t === hoveredAbilityTower) {
       ctx.save();
       ctx.strokeStyle = '#f0c040';
@@ -1605,17 +1920,30 @@ function draw() {
     }
   }
 
+  // Selected-tower range: shown for whichever placed tower's context menu is open,
+  // using its current effective range (towerStats), so range-boosting upgrades reflect
+  // immediately rather than showing the tower's unmodified base range.
+  if (ctxTower) {
+    const stats = towerStats(ctxTower);
+    const c = cellCenter(ctxTower.gx, ctxTower.gy);
+    ctx.beginPath(); ctx.arc(c.x, c.y, stats.range*CELL, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(240,192,64,0.06)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(240,192,64,0.75)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
   // Range preview
-  if (mode && TOWER_DEFS[mode] && hoverGX >= 0 && hoverGY >= 0) {
-    const def = TOWER_DEFS[mode];
+  if (placingCard && hoverGX >= 0 && hoverGY >= 0) {
+    const def = TOWER_DEFS[placingCard.type];
     const ps2 = pathSet();
-    const canPlace = !ps2.has(hoverGX+','+hoverGY) && !towerAt(hoverGX,hoverGY) && gold >= def.cost;
+    const canPlace = !ps2.has(hoverGX+','+hoverGY) && !towerAt(hoverGX,hoverGY);
     const cx = hoverGX*CELL+CELL/2, cy = hoverGY*CELL+CELL/2;
     ctx.beginPath(); ctx.arc(cx, cy, def.range*CELL, 0, Math.PI*2);
     ctx.fillStyle = canPlace ? 'rgba(255,255,255,0.04)' : 'rgba(255,80,80,0.04)';
     ctx.fill();
     ctx.strokeStyle = canPlace
-      ? (mode==='inferno' ? 'rgba(255,120,0,0.6)' : mode==='frost' ? 'rgba(80,200,255,0.6)' : mode==='sniper' ? 'rgba(220,220,235,0.7)' : 'rgba(255,255,255,0.5)')
+      ? (placingCard.type==='inferno' ? 'rgba(255,120,0,0.6)' : placingCard.type==='frost' ? 'rgba(80,200,255,0.6)' : placingCard.type==='sniper' ? 'rgba(220,220,235,0.7)' : 'rgba(255,255,255,0.5)')
       : 'rgba(255,80,80,0.5)';
     ctx.lineWidth = 1; ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
   }
